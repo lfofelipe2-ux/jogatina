@@ -29,9 +29,12 @@ export default function ActionBar({ legal, pot, currentBet, disabled = false }: 
 
   const send = async (type: ActionType, value?: number) => {
     setBusy(true);
-    const res = await api.action(type, value);
-    setBusy(false);
-    if (!res.ok) toast(res.error);
+    try {
+      const res = await api.action(type, value);
+      if (!res.ok) toast(res.error);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const pick = (v: number) => {
