@@ -32,6 +32,9 @@ function TableRoom({ tableId }: { tableId: string }) {
   );
   const [joinError, setJoinError] = useState<string | null>(null);
   const [kicked, setKicked] = useState(false);
+  /** Set when this account joined from another tab or device; this page then stays offline until asked. */
+  const [replaced, setReplaced] = useState<string | null>(null);
+  const replacedRef = useRef(false);
   const [connected, setConnected] = useState(socket.connected);
   const nameRef = useRef<string | null>(null);
   const movingRef = useRef(false);
@@ -101,13 +104,14 @@ function TableRoom({ tableId }: { tableId: string }) {
     const savedName = () => nameRef.current ?? (readItem(rtKey(tableId)) !== null ? readItem(NAME_KEY) : null);
     const onConnect = () => {
       setConnected(true);
+      if (replacedRef.current) return;
       const name = savedName();
       if (name) join(name);
     };
     const onDisconnect = (reason: string) => {
       setConnected(false);
       // A server-side disconnect (e.g. after a kick) is not retried automatically.
-      if (reason === 'io server disconnect') socket.connect();
+      if (reason === 'io server disconnect' && !replacedRef.current) socket.connect();
     };
     const onState = (s: ClientTableState) => {
       syncServerClock(s.serverNow);
@@ -121,6 +125,14 @@ function TableRoom({ tableId }: { tableId: string }) {
       setJoined(false);
       setKicked(true);
     };
+    const onReplaced = (e: { message: string }) => {
+      replacedRef.current = true;
+      joinSeq.current++;
+      setState(null);
+      setJoined(false);
+      setJoining(false);
+      setReplaced(e.message);
+    };
     const onError = (e: { message: string }) => toast(e.message);
     const onChatHistory = (msgs: ChatMessage[]) => setChat(msgs);
     const onChat = (m: ChatMessage) =>
@@ -131,6 +143,7 @@ function TableRoom({ tableId }: { tableId: string }) {
     socket.on('disconnect', onDisconnect);
     socket.on('state', onState);
     socket.on('kicked', onKicked);
+    socket.on('sessionReplaced', onReplaced);
     socket.on('error', onError);
     socket.on('linkRotated', onLinkRotated);
     socket.on('chat:history', onChatHistory);
@@ -146,7 +159,8 @@ function TableRoom({ tableId }: { tableId: string }) {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('state', onState);
-        socket.off('kicked', onKicked);
+      socket.off('kicked', onKicked);
+      socket.off('sessionReplaced', onReplaced);
       socket.off('error', onError);
       socket.off('linkRotated', onLinkRotated);
       socket.off('chat:history', onChatHistory);
@@ -164,6 +178,28 @@ function TableRoom({ tableId }: { tableId: string }) {
     },
     [],
   );
+
+  if (replaced) {
+    return (
+      <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col items-center justify-center gap-4 px-4 text-center">
+        <h1 className="text-xl font-bold">Sessão encerrada</h1>
+        <p className="text-sm text-slate-300">{replaced}</p>
+        <button
+          type="button"
+          className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300"
+          onClick={() => {
+            replacedRef.current = false;
+            setReplaced(null);
+            const name = nameRef.current ?? readItem(NAME_KEY);
+            if (!socket.connected && !socket.active) socket.connect();
+            if (name) join(name);
+          }}
+        >
+          Jogar aqui
+        </button>
+      </main>
+    );
+  }
 
   if (joined && state) {
     return (

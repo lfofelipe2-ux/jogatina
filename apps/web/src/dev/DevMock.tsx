@@ -1,7 +1,7 @@
 import { GameProvider } from '../components/GameContext';
 import GameView from '../components/GameView';
 import type { GameApi } from '../api';
-import { mockChat, mockState, type MockVariant } from './mockState';
+import { mockChat, mockProfile, mockState, type MockVariant } from './mockState';
 
 const ok = async () => ({ ok: true as const });
 
@@ -16,11 +16,12 @@ const mockApi: GameApi = {
   kick: ok,
   rotateLink: async () => ({ ok: true as const, tableId: 'mock' }),
   chat: ok,
+  profile: async (playerId) => ({ ok: true as const, profile: mockProfile(playerId) }),
 };
 
 export default function DevMock() {
   const v = new URLSearchParams(window.location.search).get('v');
-  const variant: MockVariant = v === 'result' ? v : 'play';
+  const variant: MockVariant = v === 'result' || v === 'split' ? v : 'play';
   return (
     <GameProvider api={mockApi}>
       <GameView state={mockState(variant)} chat={mockChat()} onRotated={() => {}} />

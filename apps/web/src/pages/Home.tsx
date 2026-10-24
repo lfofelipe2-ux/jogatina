@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CreateTableRequest, CreateTableResponse } from '@poker/engine';
+import Lobby from '../components/Lobby';
 import { socket } from '../socket';
 import { hostKey, writeItem } from '../lib/storage';
 import { failureMessage } from '../lib/errors';
@@ -74,9 +75,11 @@ export default function Home() {
       <div className="text-center">
         <h1 className="text-3xl font-bold tracking-tight">Poker entre amigos</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Crie uma mesa e mande o link para o grupo. Fichas fictícias, sem cadastro.
+          Entre numa mesa aberta ou crie uma e mande o link para o grupo. Fichas fictícias.
         </p>
       </div>
+
+      <Lobby />
 
       <form onSubmit={submit} className="flex flex-col gap-4 rounded-2xl border border-slate-700 bg-slate-800/70 p-5 shadow-xl">
         <h2 className="text-lg font-semibold">Nova mesa</h2>

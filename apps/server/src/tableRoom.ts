@@ -3,11 +3,13 @@ import type { Socket } from 'socket.io';
 import {
   CHAT_HISTORY_MAX,
   CHAT_TEXT_MAX,
+  HAND_HISTORY_MAX,
   TAUNTS,
   applyAction,
   canStartHand,
   createTable,
   ensurePlayer,
+  handHistoryEntry,
   legalActions,
   recordHand,
   recordTopUp,
@@ -26,19 +28,27 @@ import {
   type ClientToServerEvents,
   type GameEvent,
   type GifMedia,
+  type HandHistoryEntry,
   type JoinTableRequest,
   type JoinTableResponse,
+  type LobbyTable,
   type PlayerAction,
+  type PlayerProfile,
   type Scoreboard,
   type ServerToClientEvents,
   type TableConfig,
   type TableState,
 } from '@poker/engine';
+import { handDeltas, ledgerIdentity, monthOf, sitDebit, type Ledger } from './ledger';
 
 export interface SocketData {
   room?: TableRoom;
   playerId?: string;
   hits: number[];
+  /** Lower-cased X-Forwarded-Email from the handshake (Google login via oauth2-proxy); absent in local dev. */
+  email?: string;
+  /** Account this socket holds the session for, set once it has joined a table. */
+  identity?: string;
 }
 
 export type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -103,6 +113,8 @@ function buyIn(sb: Scoreboard, name: string, amount: number): Scoreboard {
 interface PlayerRecord {
   playerId: string;
   name: string;
+  /** Account key for the ledger and single-session rule: the login email, or the name when there is no login. */
+  identity: string;
   reconnectToken: string;
   isHost: boolean;
   connected: boolean;
@@ -111,22 +123,30 @@ interface PlayerRecord {
 
 export interface RoomInit {
   id: string;
+  /** Display name shown in the lobby and in profiles; survives link rotation. */
+  name: string;
   hostToken: string;
   config: TableConfig;
   startingStack: number;
   actionTimeoutSec: number;
+  ledger?: Ledger;
 }
 
 export class TableRoom {
   id: string;
+  readonly name: string;
   readonly hostToken: string;
   readonly startingStack: number;
   readonly actionTimeoutSec: number;
+  private readonly ledger?: Ledger;
 
   private state: TableState;
   private started = false;
   private scoreboard: Scoreboard = {};
   private readonly players = new Map<string, PlayerRecord>();
+  /** playerId -> identity, kept after a kick so a hand that settles later is still booked to the right account. */
+  private readonly identities = new Map<string, string>();
+  private readonly history: HandHistoryEntry[] = [];
   /** Chips a player stood up with, keyed by nameKey(name). Cleared on kick. */
   private readonly stacks = new Map<string, number>();
   private readonly pendingStandUp = new Set<string>();
@@ -148,9 +168,11 @@ export class TableRoom {
 
   constructor(init: RoomInit, onDelete: (room: TableRoom) => void) {
     this.id = init.id;
+    this.name = init.name;
     this.hostToken = init.hostToken;
     this.startingStack = init.startingStack;
     this.actionTimeoutSec = init.actionTimeoutSec;
+    this.ledger = init.ledger;
     this.onDelete = onDelete;
     this.state = createTable(init.config);
     this.refreshDeleteTimer();
@@ -172,10 +194,14 @@ export class TableRoom {
 
   join(socket: AppSocket, req: JoinTableRequest): JoinTableResponse {
     // Re-joining from the same socket is idempotent: keep the same player record.
+    const email = socket.data.email;
     const own = socket.data.room === this && socket.data.playerId ? this.players.get(socket.data.playerId) : undefined;
     let p = own ?? (typeof req.reconnectToken === 'string'
       ? [...this.players.values()].find((x) => x.reconnectToken === req.reconnectToken)
       : undefined);
+    if (p && email && p.identity !== email) throw new UserError('Este lugar pertence a outra conta');
+    // A signed-in account that is already at this table takes its player back (new device or tab).
+    if (!p && email) p = [...this.players.values()].find((x) => x.identity === email);
     if (!p) {
       const name = typeof req.name === 'string' ? req.name.trim() : '';
       if (name.length < 2 || name.length > 16) throw new UserError('Nome deve ter de 2 a 16 caracteres');
@@ -183,14 +209,53 @@ export class TableRoom {
       for (const x of this.players.values()) {
         if (x.name.toLocaleLowerCase() === lower) throw new UserError('Nome já em uso');
       }
-      p = { playerId: randomUUID(), name, reconnectToken: newToken(), isHost: false, connected: false, graceTimer: null };
+      const identity = email ?? ledgerIdentity(name);
+      p = { playerId: randomUUID(), name, identity, reconnectToken: newToken(), isHost: false, connected: false, graceTimer: null };
       this.players.set(p.playerId, p);
+      this.identities.set(p.playerId, identity);
     }
     if (typeof req.hostToken === 'string' && req.hostToken === this.hostToken) p.isHost = true;
     this.attach(socket, p);
     socket.emit('chat:history', this.chatLog);
     this.commit();
     return { ok: true, playerId: p.playerId, reconnectToken: p.reconnectToken, isHost: p.isHost };
+  }
+
+  identityOf(playerId: string): string | undefined {
+    return this.players.get(playerId)?.identity;
+  }
+
+  /** Read-only summary for the lobby. */
+  summary(): LobbyTable {
+    const month = monthOf(Date.now());
+    const host = [...this.players.values()].find((p) => p.isHost);
+    return {
+      tableId: this.id,
+      name: this.name,
+      host: host?.name ?? null,
+      smallBlind: this.state.config.smallBlind,
+      bigBlind: this.state.config.bigBlind,
+      startingStack: this.startingStack,
+      maxSeats: this.state.config.maxSeats,
+      seated: this.state.seats.filter((s) => s !== null).length,
+      started: this.started,
+      players: [...this.players.values()]
+        .filter((p) => p.connected)
+        .map((p) => ({
+          name: p.name,
+          seated: this.seatOf(p.playerId) !== null,
+          balance: this.ledger ? this.ledger.monthBalance(p.identity, month) : null,
+        })),
+    };
+  }
+
+  /** Profile of a player at this table, from the ledger. */
+  profile(targetId: unknown): PlayerProfile {
+    const p = typeof targetId === 'string' ? this.players.get(targetId) : undefined;
+    if (!p) throw new UserError('Jogador não encontrado');
+    if (!this.ledger) throw new UserError('Saldo indisponível');
+    const { month, balance, handsPlayed, biggestPotWon, recent } = this.ledger.stats(p.identity, monthOf(Date.now()), 10);
+    return { name: p.name, month, balance, handsPlayed, biggestPotWon, recent };
   }
 
   detach(socket: AppSocket): void {
@@ -224,7 +289,10 @@ export class TableRoom {
     const remembered = this.stacks.get(key) ?? 0;
     const returning = remembered > 0;
     const stack = returning ? remembered : this.startingStack;
-    this.state = sitDown(this.state, seat, { playerId, name: p.name, stack });
+    const next = sitDown(this.state, seat, { playerId, name: p.name, stack });
+    // Debit before the seat is taken, so a failed write leaves the player standing.
+    if (!returning) this.ledger?.append([sitDebit(p.identity, this.startingStack, this.name)]);
+    this.state = next;
     // Returning with chips adds no money; anything else is a fresh buy-in that must be counted in invested.
     if (!returning) {
       this.scoreboard = Object.hasOwn(this.scoreboard, p.name)
@@ -415,6 +483,13 @@ export class TableRoom {
     const end = out.find((e): e is Extract<GameEvent, { type: 'handEnded' }> => e.type === 'handEnded');
     if (!end) return;
     this.scoreboard = recordHand(this.scoreboard, this.state, end.result);
+    try {
+      this.ledger?.append(handDeltas(this.state, end.result, (pid) => this.identities.get(pid), this.name));
+    } catch (e) {
+      console.error('[ledger]', e);
+    }
+    this.history.unshift(handHistoryEntry(this.state, end.result, Date.now()));
+    if (this.history.length > HAND_HISTORY_MAX) this.history.pop();
     this.lastHandEnded = true;
     for (const pid of [...this.pendingSitOut]) {
       this.pendingSitOut.delete(pid);
@@ -457,6 +532,7 @@ export class TableRoom {
     const legal = seat !== null && hand && !hand.finished && hand.toAct === seat ? legalActions(this.state, seat) : null;
     return {
       tableId: this.id,
+      tableName: this.name,
       config: { ...this.state.config, startingStack: this.startingStack, actionTimeoutSec: this.actionTimeoutSec },
       table: viewFor(this.state, playerId),
       serverNow: Date.now(),
@@ -471,6 +547,7 @@ export class TableRoom {
         seat: this.seatOf(x.playerId),
         connected: x.connected,
       })),
+      history: this.history,
     };
   }
 

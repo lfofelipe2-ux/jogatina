@@ -5,3 +5,7 @@ dist
 .env.*
 !.env.example
 client_secret*.json
+data/
+*.db
+*.db-wal
+*.db-shm

@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import type { SeatView } from '@poker/engine';
 import Card from './Card';
-import Timer from './Timer';
-import { fmt } from '../lib/format';
+import { PlayerName } from './Profile';
+import Timer, { Countdown } from './Timer';
+import { fmt, signed } from '../lib/format';
 
 export type Tag = 'D' | 'SB' | 'BB';
 
@@ -18,10 +19,17 @@ interface Props {
   timeoutSec: number;
   canSit: boolean;
   onSit: (seat: number) => void;
+  /** Chips won this hand; set only on winning seats once the hand is over. */
+  won?: number;
+  /** Changes every hand, so the dealt cards fade in again. */
+  handKey?: number;
+  /** When the dealt-card flyers reach this seat, in ms; absent when nothing was dealt in view. */
+  dealDelay?: number;
 }
 
 const WRAP = 'absolute z-10 -translate-x-1/2 -translate-y-1/2';
-const BOX = 'w-[84px] sm:w-[104px]';
+// Seats grow with the table box (a size container): 84px up to 136px.
+const BOX = 'w-[clamp(84px,12cqw,136px)]';
 
 function Badge({ className, children }: { className: string; children: ReactNode }) {
   return <span className={`rounded px-1 text-[11px] font-bold leading-4 text-white ${className}`}>{children}</span>;
@@ -39,6 +47,9 @@ export default function Seat({
   timeoutSec,
   canSit,
   onSit,
+  won,
+  handKey,
+  dealDelay,
 }: Props) {
   const pos = { left: `${x}%`, top: `${y}%` };
 
@@ -64,7 +75,9 @@ export default function Seat({
     );
   }
 
-  const ring = toAct
+  const ring = won
+    ? 'fx-win border-2 border-amber-300'
+    : toAct
     ? 'border-amber-400 ring-2 ring-amber-400/70 shadow-[0_0_18px_rgba(251,191,36,0.45)]'
     : isYou
       ? 'border-sky-400'
@@ -82,7 +95,20 @@ export default function Seat({
             D
           </span>
         )}
-        <div className="truncate px-1 text-xs font-semibold text-slate-100">{view.name}</div>
+        {toAct && !isYou && deadline !== null && (
+          <Countdown
+            deadline={deadline}
+            className="absolute -left-2.5 -top-2.5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-base text-white shadow ring-2 ring-red-300/70"
+          />
+        )}
+        {won ? (
+          <span className="fx-pop absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-500 px-2 py-0.5 text-sm font-extrabold leading-none tabular-nums text-white shadow-[0_0_12px_rgba(16,185,129,0.7)]">
+            {signed(won)}
+          </span>
+        ) : null}
+        <div className={`truncate px-1 font-semibold ${won ? 'text-sm text-amber-200 sm:text-base' : 'text-xs text-slate-100'}`}>
+          <PlayerName playerId={view.playerId} name={view.name} />
+        </div>
         <div className="text-xs font-medium tabular-nums text-emerald-300">{fmt(view.stack)}</div>
         <div className="mt-0.5 flex min-h-[16px] flex-wrap justify-center gap-0.5">
           {tags.includes('SB') && <Badge className="bg-indigo-600">SB</Badge>}
@@ -91,11 +117,15 @@ export default function Seat({
           {view.sittingOut && <Badge className="bg-slate-600">Ausente</Badge>}
           {view.allIn && <Badge className="bg-red-600">All-in</Badge>}
         </div>
-        <div className="mt-1 flex justify-center gap-0.5">
+        <div
+          key={handKey}
+          className={`mt-1 flex justify-center gap-0.5 ${dealDelay !== undefined ? 'fx-deal-in' : ''}`}
+          style={dealDelay !== undefined ? { animationDelay: `${dealDelay}ms` } : undefined}
+        >
           {view.holeCards ? (
             <>
-              <Card card={view.holeCards[0]} />
-              <Card card={view.holeCards[1]} />
+              <Card card={view.holeCards[0]} flip={!isYou} />
+              <Card card={view.holeCards[1]} flip={!isYou} />
             </>
           ) : view.hasCards ? (
             <>

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { ClientTableState } from '@poker/engine';
 import type { JoinTableRequest } from '@poker/engine';
+import { openLedger, type Ledger } from './ledger';
 import { TableRoom, type AppSocket } from './tableRoom';
 
 const ACTION_TIMEOUT_SEC = 10;
@@ -29,14 +30,16 @@ const flush = () => vi.advanceTimersByTimeAsync(0);
 describe('TableRoom', () => {
   const rooms: TableRoom[] = [];
 
-  function makeRoom(): TableRoom {
+  function makeRoom(ledger?: Ledger): TableRoom {
     const room = new TableRoom(
       {
         id: 't1',
+        name: 'Mesa TEST',
         hostToken: 'host-token',
         config: { maxSeats: 6, smallBlind: 5, bigBlind: 10 },
         startingStack: 1000,
         actionTimeoutSec: ACTION_TIMEOUT_SEC,
+        ledger,
       },
       () => {},
     );
@@ -45,8 +48,8 @@ describe('TableRoom', () => {
   }
 
   /** Heads-up table with a hand in progress: seat 0 (button, small blind) acts first preflop. */
-  async function handInProgress() {
-    const room = makeRoom();
+  async function handInProgress(ledger?: Ledger) {
+    const room = makeRoom(ledger);
     const a = fakeSocket();
     const b = fakeSocket();
     const pa = joined(room, a, { tableId: 't1', name: 'Alice', hostToken: 'host-token' }).playerId;
@@ -134,6 +137,40 @@ describe('TableRoom', () => {
       expect(st.table.seats[1]!.stack).toBe(1000);
       expect(row.invested).toBe(1000 + 1000);
       expect(row.net).toBe(st.table.seats[1]!.stack - row.invested);
+    });
+  });
+
+  describe('ledger', () => {
+    it('debits the starting stack on sit and records each player\'s net when a hand ends', async () => {
+      const ledger = openLedger(':memory:');
+      const month = new Date().toISOString().slice(0, 7);
+      const { room, pa, pb } = await handInProgress(ledger);
+      expect(ledger.monthBalance('alice', month)).toBe(-1000);
+      expect(ledger.monthBalance('bob', month)).toBe(-1000);
+
+      room.action(pa, { type: 'fold' });
+      await flush();
+      // Alice posted the small blind (5) and folded; Bob's big blind is returned as part of his payout.
+      expect(ledger.monthBalance('alice', month)).toBe(-1000 - 5);
+      expect(ledger.monthBalance('bob', month)).toBe(-1000 + 5);
+
+      room.standUp(pb);
+      room.sit(pb, 1);
+      expect(ledger.monthBalance('bob', month)).toBe(-1000 + 5);
+      ledger.close();
+    });
+
+    it('a fresh buy-in after busting or a kick is debited again', async () => {
+      const ledger = openLedger(':memory:');
+      const month = new Date().toISOString().slice(0, 7);
+      const { room, pa, pb } = await handInProgress(ledger);
+      room.action(pa, { type: 'fold' });
+      room.kick(pa, pb);
+      const c = fakeSocket();
+      const pc = joined(room, c, { tableId: 't1', name: 'Bob' }).playerId;
+      room.sit(pc, 1);
+      expect(ledger.monthBalance('bob', month)).toBe(-2000 + 5);
+      ledger.close();
     });
   });
 
