@@ -5,7 +5,7 @@ declare module 'pokersolver' {
     name: string;
     descr: string;
     rank: number;
-    cards: unknown[];
+    cards: { value: string; suit: string; rank: number }[];
   }
   const pokersolver: { Hand: typeof Hand };
   export default pokersolver;

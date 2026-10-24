@@ -32,3 +32,130 @@
     background: repeating-linear-gradient(45deg, #1e3a8a 0 4px, #1d4ed8 4px 8px);
   }
 }
+
+/* Table motion. Flyers read their start and end points from --x0/--y0/--x1/--y1 (table-box percentages). */
+@layer utilities {
+  .fx-fly {
+    animation: fx-fly 350ms ease-out both;
+  }
+  .fx-slide {
+    animation: fx-slide 300ms ease-out both;
+  }
+  .fx-deal-in {
+    animation: fx-fade-in 150ms ease-out both;
+  }
+  .fx-flip {
+    animation: fx-flip 450ms ease-out both;
+  }
+  .fx-pop {
+    animation: fx-pop 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .fx-win {
+    animation: fx-win 1.4s ease-in-out infinite;
+  }
+  .fx-badge {
+    animation: fx-badge 2.8s ease-out both;
+  }
+}
+
+@keyframes fx-fly {
+  from {
+    left: var(--x0);
+    top: var(--y0);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  to {
+    left: var(--x1);
+    top: var(--y1);
+    opacity: 0;
+  }
+}
+@keyframes fx-slide {
+  from {
+    left: var(--x0);
+    top: var(--y0);
+  }
+  to {
+    left: var(--x1);
+    top: var(--y1);
+  }
+}
+@keyframes fx-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fx-flip {
+  from {
+    transform: perspective(400px) rotateY(90deg);
+  }
+  to {
+    transform: perspective(400px) rotateY(0);
+  }
+}
+@keyframes fx-pop {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+@keyframes fx-win {
+  0%,
+  100% {
+    box-shadow: 0 0 8px 1px rgba(251, 191, 36, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 26px 6px rgba(251, 191, 36, 0.85);
+  }
+}
+@keyframes fx-badge {
+  0% {
+    opacity: 0;
+    scale: 0.6;
+  }
+  10% {
+    opacity: 1;
+    scale: 1.08;
+  }
+  16%,
+  85% {
+    opacity: 1;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1;
+  }
+}
+@keyframes fx-badge-fade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  8%,
+  88% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-fly {
+    display: none;
+  }
+  .fx-slide,
+  .fx-deal-in,
+  .fx-flip,
+  .fx-pop {
+    animation: none;
+  }
+  .fx-win {
+    animation: none;
+    box-shadow: 0 0 18px 4px rgba(251, 191, 36, 0.7);
+  }
+  .fx-badge {
+    animation: fx-badge-fade 2.8s linear both;
+  }
+}

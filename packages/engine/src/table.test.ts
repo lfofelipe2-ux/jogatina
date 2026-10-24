@@ -291,8 +291,10 @@ describe('showdown and pots', () => {
     }
     const result = s.hand!.result!;
     expect(result.pots).toEqual([
-      { amount: 63, winners: [1, 0], handName: expect.any(String) },
+      { amount: 63, winners: [1, 0], handName: expect.any(String), decision: { runnerUp: 2 } },
     ]);
+    expect(result.showdown[0]).toMatchObject({ category: 'two-pair', best: ['As', 'Ad', 'Ks', 'Kd', '9c'] });
+    expect(result.showdown[2]).toMatchObject({ category: 'pair', best: ['Ks', 'Kd', '9c', '7d', '4s'] });
     expect(result.payouts).toEqual({ 1: 32, 0: 31 });
     expect(stacks(s)).toEqual([1010, 1011, 979]);
   });
