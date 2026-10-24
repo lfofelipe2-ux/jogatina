@@ -1,4 +1,5 @@
 import type { ChatInput, ChatMessage } from './chat';
+import type { RequestClientEvents, RequestServerEvents } from './requests';
 import type { ActionType, Card, HandCategory, LegalActions, Scoreboard, TableConfig, TableView } from './types';
 
 export interface CreateTableRequest {
@@ -25,7 +26,7 @@ export type JoinTableResponse =
 export type Ack<T> = (response: T) => void;
 export type SimpleResponse = { ok: true } | { ok: false; error: string };
 
-export interface ClientToServerEvents {
+export interface ClientToServerEvents extends RequestClientEvents {
   createTable: (req: CreateTableRequest, ack: Ack<CreateTableResponse>) => void;
   joinTable: (req: JoinTableRequest, ack: Ack<JoinTableResponse>) => void;
   sit: (req: { seat: number }, ack: Ack<SimpleResponse>) => void;
@@ -110,7 +111,7 @@ export interface ClientTableState {
   history: HandHistoryEntry[];
 }
 
-export interface ServerToClientEvents {
+export interface ServerToClientEvents extends RequestServerEvents {
   state: (state: ClientTableState) => void;
   linkRotated: (req: { tableId: string }) => void;
   kicked: () => void;

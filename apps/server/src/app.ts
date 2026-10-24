@@ -8,6 +8,7 @@ import { EngineError, type ClientToServerEvents, type ServerToClientEvents, type
 import { GifService, UpstreamBusy } from './gifs';
 import { forwardedEmail } from './identity';
 import type { Ledger } from './ledger';
+import { createRequests, type RequestsOptions } from './requestsApi';
 import { TableManager } from './tableManager';
 import { UserError, type AppSocket, type SocketData, type TableRoom } from './tableRoom';
 
@@ -62,13 +63,18 @@ function roomOf(socket: AppSocket): { room: TableRoom; playerId: string } {
   return { room, playerId };
 }
 
-export function createApp({ gifs = new GifService(), ledger }: { gifs?: GifService; ledger?: Ledger } = {}) {
+export function createApp({
+  gifs = new GifService(),
+  ledger,
+  requests: requestOpts,
+}: { gifs?: GifService; ledger?: Ledger; requests?: RequestsOptions } = {}) {
   const app = express();
   // Caddy (loopback or the Docker network) appends the visitor to X-Forwarded-For after checking Cloudflare's ranges.
   app.set('trust proxy', 'loopback, uniquelocal');
   const httpServer = createServer(app);
   const manager = new TableManager(ledger);
   const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer);
+  const requests = requestOpts ? createRequests(io, manager, requestOpts) : undefined;
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, tables: manager.size, players: manager.connectedPlayers() });
@@ -103,6 +109,8 @@ export function createApp({ gifs = new GifService(), ledger }: { gifs?: GifServi
     }
   });
 
+  if (requests) app.use(requests.shots);
+
   const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
   const indexHtml = path.join(webDist, 'index.html');
   if (existsSync(indexHtml)) {
@@ -132,6 +140,10 @@ export function createApp({ gifs = new GifService(), ledger }: { gifs?: GifServi
   io.on('connection', (socket: AppSocket) => {
     socket.data.hits = [];
     socket.data.email = forwardedEmail(socket.handshake.headers);
+
+    requests?.attach(socket, <T extends { ok: boolean }>(ack: ((r: T) => void) | undefined, fn: () => T) =>
+      invoke(socket, ack, fn),
+    );
 
     socket.on('createTable', (req, ack) => invoke(socket, ack, () => manager.create(req)));
 
@@ -204,5 +216,5 @@ export function createApp({ gifs = new GifService(), ledger }: { gifs?: GifServi
     });
   });
 
-  return { httpServer, io, manager };
+  return { httpServer, io, manager, internalApp: requests?.internal };
 }

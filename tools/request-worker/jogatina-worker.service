@@ -1,0 +1,15 @@
+[Unit]
+Description=jogatina request worker
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/apps/jogatina-worker/app
+EnvironmentFile=/home/ubuntu/apps/jogatina-worker/worker.env
+ExecStart=/usr/bin/node /home/ubuntu/apps/jogatina-worker/app/worker.mjs
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

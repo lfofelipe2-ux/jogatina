@@ -221,6 +221,10 @@ export class TableRoom {
     return { ok: true, playerId: p.playerId, reconnectToken: p.reconnectToken, isHost: p.isHost };
   }
 
+  nameOf(playerId: string): string | undefined {
+    return this.players.get(playerId)?.name;
+  }
+
   identityOf(playerId: string): string | undefined {
     return this.players.get(playerId)?.identity;
   }

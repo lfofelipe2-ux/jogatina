@@ -1,4 +1,4 @@
-import type { ActionType, ChatInput, ProfileResponse, SimpleResponse } from '@poker/engine';
+import type { ActionType, ChangeRequest, ChatInput, ProfileResponse, RequestsResponse, SimpleResponse } from '@poker/engine';
 import { socket, type AppSocket } from './socket';
 
 export type RotateResponse = { ok: true; tableId: string } | { ok: false; error: string };
@@ -12,6 +12,12 @@ export interface GameApi {
   rotateLink(): Promise<RotateResponse>;
   chat(input: ChatInput): Promise<SimpleResponse>;
   profile(playerId: string): Promise<ProfileResponse>;
+  requests(): Promise<RequestsResponse>;
+  requestCreate(text: string): Promise<SimpleResponse>;
+  requestDecide(id: number, approve: boolean): Promise<SimpleResponse>;
+  requestReply(id: number, text: string): Promise<SimpleResponse>;
+  /** Returns the unsubscribe function. */
+  onRequestUpdate(cb: (r: ChangeRequest) => void): () => void;
 }
 
 const TIMEOUT_MS = 10_000;
@@ -42,6 +48,14 @@ export function createSocketApi(s: AppSocket): GameApi {
     rotateLink: () => call<RotateResponse>(s, (ack) => s.emit('host:rotateLink', ack), FAIL, OFFLINE),
     chat: (input) => simple((ack) => s.emit('chat:send', input, ack)),
     profile: (playerId) => call<ProfileResponse>(s, (ack) => s.emit('profile:get', { playerId }, ack), FAIL, OFFLINE),
+    requests: () => call<RequestsResponse>(s, (ack) => s.emit('requests:list', ack), FAIL, OFFLINE),
+    requestCreate: (text) => simple((ack) => s.emit('requests:create', { text }, ack)),
+    requestDecide: (id, approve) => simple((ack) => s.emit('requests:decide', { id, approve }, ack)),
+    requestReply: (id, text) => simple((ack) => s.emit('requests:reply', { id, text }, ack)),
+    onRequestUpdate: (cb) => {
+      s.on('requests:update', cb);
+      return () => void s.off('requests:update', cb);
+    },
   };
 }
 

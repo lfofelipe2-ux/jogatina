@@ -9,3 +9,4 @@ export * from './scoreboard';
 export * from './chat';
 export * from './stickers';
 export * from './history';
+export * from './requests';
