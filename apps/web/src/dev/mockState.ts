@@ -1,4 +1,5 @@
 import type {
+  ChangeRequest,
   ChatMessage,
   HandHistoryEntry,
   PlayerProfile,
@@ -192,5 +193,41 @@ export function mockChat(): ChatMessage[] {
     { id: 2, playerId: 'p0', name: 'Ana', at: now - 40_000, body: { kind: 'taunt', text: 'Vai pagar pra ver?' } },
     { id: 3, playerId: 'p3', name: 'Diego', at: now - 1000, body: { kind: 'sticker', id: '1f602' } },
     { id: 4, playerId: 'p1', name: 'Bruno', at: now - 500, body: { kind: 'taunt', text: 'Blefe!' } },
+  ];
+}
+
+const SHOT =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 100'%3E%3Crect width='160' height='100' fill='%230f172a'/%3E%3Cellipse cx='80' cy='52' rx='66' ry='34' fill='%231e3a8a'/%3E%3C/svg%3E";
+
+export function mockRequests(): ChangeRequest[] {
+  const t = Date.now();
+  return [
+    {
+      id: 3,
+      at: t - 20 * 60_000,
+      authorName: 'Bruno',
+      text: 'Mostrar quanto falta para pagar em cima do botão de Pagar.',
+      status: 'pending',
+      prUrl: null,
+      events: [],
+    },
+    {
+      id: 2,
+      at: t - 90 * 60_000,
+      authorName: 'Ana',
+      text: 'Feltro da mesa em azul escuro.',
+      status: 'preview',
+      prUrl: 'https://github.com/lfofelipe2-ux/jogatina/pull/14',
+      events: [
+        { at: t - 80 * 60_000, author: 'admin', name: 'Luis', text: 'Aprovou o pedido', images: [] },
+        {
+          at: t - 30 * 60_000,
+          author: 'worker',
+          name: 'Worker',
+          text: 'Troquei a cor do feltro para azul escuro e ajustei o contraste das fichas. Testes e build passaram.',
+          images: [SHOT, SHOT],
+        },
+      ],
+    },
   ];
 }

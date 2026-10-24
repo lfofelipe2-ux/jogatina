@@ -9,3 +9,5 @@ data/
 *.db
 *.db-wal
 *.db-shm
+.preview/
+.preview-out/

@@ -8,12 +8,13 @@ import HistoryPanel from './HistoryPanel';
 import HostPanel from './HostPanel';
 import MuteButton from './MuteButton';
 import { ProfileProvider } from './Profile';
+import RequestsPanel from './RequestsPanel';
 import Scoreboard from './Scoreboard';
 import ShareLink from './ShareLink';
 import Table from './Table';
 import { useGame } from './GameContext';
 import { fmt } from '../lib/format';
-import { btn } from '../lib/ui';
+import { btn, btnPrimary } from '../lib/ui';
 import { play } from '../lib/sound';
 import { soundsFor } from '../lib/tableSounds';
 
@@ -22,6 +23,8 @@ interface Props {
   chat: ChatMessage[];
   onRotated: (tableId: string) => void;
   connected?: boolean;
+  /** Dev mock only: start with the requests window open. */
+  initialRequestsOpen?: boolean;
 }
 
 type TabId = 'placar' | 'historico' | 'chat' | 'host';
@@ -71,9 +74,10 @@ function useTableSounds(state: ClientTableState) {
   }, [state]);
 }
 
-export default function GameView({ state, chat, onRotated, connected = true }: Props) {
+export default function GameView({ state, chat, onRotated, connected = true, initialRequestsOpen = false }: Props) {
   const { api, toast } = useGame();
   const [tab, setTab] = useState<TabId>('placar');
+  const [requestsOpen, setRequestsOpen] = useState(initialRequestsOpen);
   const bubbles = useBubbles(chat);
   useTableSounds(state);
   const readUpTo = useRef(chat.at(-1)?.id ?? 0);
@@ -125,6 +129,14 @@ export default function GameView({ state, chat, onRotated, connected = true }: P
               <p className="hidden text-xs text-slate-400 sm:block">{info}</p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setRequestsOpen((o) => !o)}
+                aria-pressed={requestsOpen}
+                className={`${requestsOpen ? btnPrimary : btn} hidden sm:block`}
+              >
+                Pedidos
+              </button>
               <HandCheatSheet hole={hand ? (me?.holeCards ?? null) : null} board={hand?.board ?? []} />
               <MuteButton className="hidden sm:flex" />
               <ShareLink />
@@ -139,6 +151,9 @@ export default function GameView({ state, chat, onRotated, connected = true }: P
                 <div className="absolute right-0 top-full z-40 mt-1 flex w-56 flex-col gap-2 rounded-lg border border-slate-700 bg-slate-800 p-2 shadow-xl">
                   <p className="text-xs text-slate-400">{info}</p>
                   <MuteButton withLabel />
+                  <button type="button" onClick={() => setRequestsOpen((o) => !o)} className={btn}>
+                    Pedidos
+                  </button>
                   {seatButtons}
                 </div>
               </details>
@@ -195,6 +210,7 @@ export default function GameView({ state, chat, onRotated, connected = true }: P
           )}
         </aside>
       </div>
+      {requestsOpen && <RequestsPanel youName={you.name} onClose={() => setRequestsOpen(false)} />}
     </ProfileProvider>
   );
 }
