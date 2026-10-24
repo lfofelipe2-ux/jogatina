@@ -35,8 +35,8 @@ describe('ledger', () => {
     expect(monthOf(NOV_1)).toBe('2026-11');
   });
 
-  it('identity is the trimmed name', () => {
-    expect(ledgerIdentity('  Ana ')).toBe('Ana');
+  it('name identity is the trimmed, lower-cased name', () => {
+    expect(ledgerIdentity('  Ana ')).toBe('ana');
   });
 
   it('sums sit debits and hand results', () => {
@@ -80,7 +80,7 @@ describe('ledger', () => {
     const file = path.join(dir, 'nested', 'ledger.db');
     const l = ledger(file);
     l.append([sitDebit('Ana', 1000)]);
-    expect(Object.keys(l).sort()).toEqual(['append', 'close', 'history', 'monthBalance']);
+    expect(Object.keys(l).sort()).toEqual(['append', 'close', 'history', 'monthBalance', 'stats']);
 
     const raw = new DatabaseSync(file);
     try {
@@ -99,13 +99,49 @@ describe('ledger', () => {
     expect(l.history('Ana')).toEqual([]);
   });
 
-  it('handDeltas nets payouts against committed chips and skips zero', () => {
-    const hp = (seat: number, committedTotal: number) => ({ seat, committedTotal }) as never;
-    const state = { hand: { players: { 0: hp(0, 200), 1: hp(1, 500), 2: hp(2, 0) } } } as unknown as TableState;
-    const result = { payouts: { 1: 700 }, names: { 0: 'Ana', 1: 'Bia', 2: 'Caio' } } as unknown as HandResult;
-    expect(handDeltas(state, result)).toEqual([
-      { identity: 'Ana', kind: 'hand', amount: -200 },
-      { identity: 'Bia', kind: 'hand', amount: 200 },
+  it('handDeltas nets payouts against committed chips, books every dealt-in player and keeps the table', () => {
+    const hp = (seat: number, committedTotal: number) => ({ seat, playerId: `p${seat}`, committedTotal }) as never;
+    const state = { hand: { players: { 0: hp(0, 200), 1: hp(1, 500), 2: hp(2, 0), 3: hp(3, 10) } } } as unknown as TableState;
+    const result = { payouts: { 1: 700 }, names: {} } as unknown as HandResult;
+    const ids: Record<string, string> = { p0: 'ana', p1: 'bia@example.com', p2: 'caio' };
+    expect(handDeltas(state, result, (pid) => ids[pid], 'Mesa X')).toEqual([
+      { identity: 'ana', kind: 'hand', amount: -200, table: 'Mesa X', payout: 0 },
+      { identity: 'bia@example.com', kind: 'hand', amount: 200, table: 'Mesa X', payout: 700 },
+      { identity: 'caio', kind: 'hand', amount: 0, table: 'Mesa X', payout: 0 },
     ]);
+  });
+
+  it('balance maths: sit debits plus hand results, per UTC month, with profile stats', () => {
+    const l = ledger();
+    clock = Date.UTC(2026, 9, 30, 12);
+    l.append([sitDebit('ana', 1000, 'Mesa A')]);
+    l.append([{ identity: 'ana', kind: 'hand', amount: 400, table: 'Mesa A', payout: 600 }]);
+    clock = Date.UTC(2026, 10, 1, 0, 0, 1);
+    l.append([sitDebit('ana', 1000, 'Mesa B')]);
+    l.append([{ identity: 'ana', kind: 'hand', amount: -50, table: 'Mesa B', payout: 0 }]);
+    l.append([{ identity: 'ana', kind: 'hand', amount: 250, table: 'Mesa B', payout: 350 }]);
+    l.append([{ identity: 'ana', kind: 'hand', amount: 0, table: 'Mesa B', payout: 0 }]);
+
+    expect(l.monthBalance('ana', '2026-10')).toBe(-1000 + 400);
+    const nov = l.stats('ana', '2026-11');
+    expect(nov).toMatchObject({ month: '2026-11', balance: -1000 - 50 + 250, handsPlayed: 3, biggestPotWon: 350 });
+    expect(nov.recent.map((r) => r.amount)).toEqual([0, 250, -50, 400]);
+    expect(nov.recent[0]).toEqual({ at: clock, table: 'Mesa B', amount: 0 });
+    expect(l.stats('ana', '2026-11', 2).recent).toHaveLength(2);
+    expect(l.stats('nobody', '2026-11')).toEqual({ month: '2026-11', balance: 0, handsPlayed: 0, biggestPotWon: 0, recent: [] });
+  });
+
+  it('adds the new columns to a ledger created by the first release, keeping its rows', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'ledger-'));
+    dirs.push(dir);
+    const file = path.join(dir, 'old.db');
+    const raw = new DatabaseSync(file);
+    raw.exec(`CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, month TEXT NOT NULL,
+      identity TEXT NOT NULL, kind TEXT NOT NULL CHECK (kind IN ('sit', 'hand')), amount INTEGER NOT NULL)`);
+    raw.exec(`INSERT INTO entries (at, month, identity, kind, amount) VALUES (1, '2026-10', 'ana', 'sit', -1000)`);
+    raw.close();
+    const l = ledger(file);
+    l.append([{ identity: 'ana', kind: 'hand', amount: 30, table: 'Mesa A', payout: 50 }]);
+    expect(l.stats('ana', '2026-10')).toMatchObject({ balance: -970, handsPlayed: 1, biggestPotWon: 50 });
   });
 });

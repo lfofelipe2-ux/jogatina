@@ -1,6 +1,10 @@
-import type { CreateTableResponse } from '@poker/engine';
+import { randomInt } from 'node:crypto';
+import type { CreateTableResponse, LobbyTable } from '@poker/engine';
 import type { Ledger } from './ledger';
 import { TableRoom, int, newToken } from './tableRoom';
+
+// No 0/O or 1/I, so a name read aloud is unambiguous.
+const NAME_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export class TableManager {
   private readonly tables = new Map<string, TableRoom>();
@@ -15,6 +19,23 @@ export class TableManager {
     let n = 0;
     for (const t of this.tables.values()) n += t.connectedCount();
     return n;
+  }
+
+  /** Open tables for the lobby, busiest first. */
+  list(): LobbyTable[] {
+    return [...this.tables.values()]
+      .map((t) => t.summary())
+      .sort((a, b) => b.players.length - a.players.length || a.name.localeCompare(b.name));
+  }
+
+  private newName(): string {
+    const taken = new Set([...this.tables.values()].map((t) => t.name));
+    for (;;) {
+      let code = '';
+      for (let i = 0; i < 4; i++) code += NAME_CHARS[randomInt(NAME_CHARS.length)];
+      const name = `Mesa ${code}`;
+      if (!taken.has(name)) return name;
+    }
   }
 
   find(tableId: unknown): TableRoom | undefined {
@@ -32,7 +53,7 @@ export class TableManager {
     while (this.tables.has(id)) id = newToken();
     const hostToken = newToken();
     const room = new TableRoom(
-      { id, hostToken, config: { maxSeats, smallBlind, bigBlind }, startingStack, actionTimeoutSec, ledger: this.ledger },
+      { id, name: this.newName(), hostToken, config: { maxSeats, smallBlind, bigBlind }, startingStack, actionTimeoutSec, ledger: this.ledger },
       (t) => this.remove(t),
     );
     this.tables.set(id, room);

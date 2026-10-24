@@ -1,0 +1,19 @@
+Sound effects in this folder are by Kenney (https://kenney.nl), released under
+CC0 1.0 Universal (public domain): https://creativecommons.org/publicdomain/zero/1.0/
+
+Downloaded from the Kenney mirror at https://github.com/Cy4nWare/sfx-api
+(kenney.nl itself was not reachable from the build machine), then converted
+from Ogg Vorbis to mono 64 kbps MP3 with ffmpeg so that Safari/iOS can play them.
+
+File        Kenney pack       Original file
+deal.mp3    Casino Audio      card-slide-1.ogg
+fold.mp3    Casino Audio      card-shove-1.ogg
+chips.mp3   Casino Audio      chips-collide-1.ogg
+raise.mp3   Casino Audio      chips-stack-1.ogg
+allin.mp3   Casino Audio      chips-handle-6.ogg
+check.mp3   Impact Sounds     impactWood_light_000.ogg
+turn.mp3    Interface Sounds  bong_001.ogg
+win.mp3     Music Jingles     jingles_PIZZI00.ogg
+
+Pack pages: https://kenney.nl/assets/casino-audio, https://kenney.nl/assets/impact-sounds,
+https://kenney.nl/assets/interface-sounds, https://kenney.nl/assets/music-jingles

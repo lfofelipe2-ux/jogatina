@@ -6,6 +6,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import { EngineError, type ClientToServerEvents, type ServerToClientEvents, type SimpleResponse } from '@poker/engine';
 import { GifService, UpstreamBusy } from './gifs';
+import { forwardedEmail } from './identity';
 import type { Ledger } from './ledger';
 import { TableManager } from './tableManager';
 import { UserError, type AppSocket, type SocketData, type TableRoom } from './tableRoom';
@@ -16,6 +17,9 @@ const GIF_WINDOW_MS = 10_000;
 const GIF_MAX_PER_WINDOW = 20;
 const GIF_IPS_MAX = 10_000;
 const OK: SimpleResponse = { ok: true };
+
+const REPLACED_MESSAGE = 'Sua conta entrou na mesa em outra aba ou aparelho. Esta sessão foi encerrada.';
+const REPLACED_DISCONNECT_MS = 200;
 
 type RotateResponse = { ok: true; tableId: string } | { ok: false; error: string };
 
@@ -70,6 +74,11 @@ export function createApp({ gifs = new GifService(), ledger }: { gifs?: GifServi
     res.json({ ok: true, tables: manager.size, players: manager.connectedPlayers() });
   });
 
+  /** Lobby: open tables, read-only. In production oauth2-proxy only lets signed-in users reach this. */
+  app.get('/api/tables', (_req, res) => {
+    res.json({ ok: true, tables: manager.list() });
+  });
+
   app.get('/api/config', (_req, res) => {
     res.json({ gifs: gifs.enabled });
   });
@@ -101,8 +110,28 @@ export function createApp({ gifs = new GifService(), ledger }: { gifs?: GifServi
     app.get('*', (_req, res) => res.sendFile(indexHtml));
   }
 
+  /** Single session per account: identity -> the socket that joined most recently. */
+  const sessions = new Map<string, AppSocket>();
+  const claimSession = (socket: AppSocket) => {
+    const identity = socket.data.playerId ? socket.data.room?.identityOf(socket.data.playerId) : undefined;
+    if (!identity) return;
+    const old = sessions.get(identity);
+    sessions.set(identity, socket);
+    socket.data.identity = identity;
+    if (!old || old === socket || !old.connected) return;
+    old.data.identity = undefined;
+    try {
+      old.data.room?.detach(old);
+    } catch (e) {
+      console.error('[server]', e);
+    }
+    old.emit('sessionReplaced', { message: REPLACED_MESSAGE });
+    setTimeout(() => old.disconnect(true), REPLACED_DISCONNECT_MS);
+  };
+
   io.on('connection', (socket: AppSocket) => {
     socket.data.hits = [];
+    socket.data.email = forwardedEmail(socket.handshake.headers);
 
     socket.on('createTable', (req, ack) => invoke(socket, ack, () => manager.create(req)));
 
@@ -110,7 +139,14 @@ export function createApp({ gifs = new GifService(), ledger }: { gifs?: GifServi
       const room = manager.find(req?.tableId);
       if (!room) throw new UserError('Mesa não encontrada');
       if (socket.data.room && socket.data.room !== room) throw new UserError('Esta conexão já está em uma mesa');
-      return room.join(socket, req);
+      const res = room.join(socket, req);
+      if (res.ok) claimSession(socket);
+      return res;
+    }));
+
+    socket.on('profile:get', (req, ack) => invoke(socket, ack, () => {
+      const { room } = roomOf(socket);
+      return { ok: true as const, profile: room.profile(req?.playerId) };
     }));
 
     socket.on('sit', (req, ack) => invoke<SimpleResponse>(socket, ack, () => {
@@ -158,6 +194,8 @@ export function createApp({ gifs = new GifService(), ledger }: { gifs?: GifServi
     }));
 
     socket.on('disconnect', () => {
+      const identity = socket.data.identity;
+      if (identity && sessions.get(identity) === socket) sessions.delete(identity);
       try {
         socket.data.room?.detach(socket);
       } catch (e) {
