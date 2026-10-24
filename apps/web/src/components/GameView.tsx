@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { ChatBody, ChatMessage, ClientTableState, SimpleResponse } from '@poker/engine';
 import ActionBar from './ActionBar';
 import ChatPanel from './ChatPanel';
+import HandCheatSheet from './HandCheatSheet';
 import HostPanel from './HostPanel';
 import Scoreboard from './Scoreboard';
 import ShareLink from './ShareLink';
@@ -105,7 +106,8 @@ export default function GameView({ state, chat, onRotated, connected = true }: P
             </h1>
             <p className="hidden text-xs text-slate-400 sm:block">{info}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <HandCheatSheet hole={hand ? (me?.holeCards ?? null) : null} board={hand?.board ?? []} />
             <ShareLink />
             <span className="hidden gap-2 sm:flex">{seatButtons}</span>
             <Link to="/" className={btn}>
