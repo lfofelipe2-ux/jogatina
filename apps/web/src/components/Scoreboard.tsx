@@ -1,4 +1,5 @@
 import type { ClientTableState, ScoreRow } from '@poker/engine';
+import { PlayerName } from './Profile';
 import { fmt, signed } from '../lib/format';
 
 export function sortedRows(scoreboard: Record<string, ScoreRow>): ScoreRow[] {
@@ -13,6 +14,7 @@ interface Props {
 export default function Scoreboard({ scoreboard, online }: Props) {
   const rows = sortedRows(scoreboard);
   const here = new Set(online.filter((p) => p.connected).map((p) => p.name));
+  const idOf = new Map(online.map((p) => [p.name, p.playerId]));
 
   if (rows.length === 0) return <p className="text-sm text-slate-500">Sem jogadores ainda.</p>;
 
@@ -33,7 +35,7 @@ export default function Scoreboard({ scoreboard, online }: Props) {
           {rows.map((r) => (
             <tr key={r.name} className={`border-b border-slate-800 ${here.has(r.name) ? '' : 'text-slate-400'}`}>
               <td className="max-w-[7rem] truncate py-1.5 pr-1" title={r.name}>
-                {r.name}
+                <PlayerName playerId={idOf.get(r.name)} name={r.name} />
               </td>
               <td className="px-1 text-right tabular-nums">{fmt(r.stack)}</td>
               <td

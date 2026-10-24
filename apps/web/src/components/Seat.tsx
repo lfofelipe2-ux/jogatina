@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { SeatView } from '@poker/engine';
 import Card from './Card';
+import { PlayerName } from './Profile';
 import Timer, { Countdown } from './Timer';
 import { fmt, signed } from '../lib/format';
 
@@ -106,7 +107,7 @@ export default function Seat({
           </span>
         ) : null}
         <div className={`truncate px-1 font-semibold ${won ? 'text-sm text-amber-200 sm:text-base' : 'text-xs text-slate-100'}`}>
-          {view.name}
+          <PlayerName playerId={view.playerId} name={view.name} />
         </div>
         <div className="text-xs font-medium tabular-nums text-emerald-300">{fmt(view.stack)}</div>
         <div className="mt-0.5 flex min-h-[16px] flex-wrap justify-center gap-0.5">

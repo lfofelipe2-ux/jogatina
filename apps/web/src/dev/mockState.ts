@@ -1,5 +1,7 @@
 import type {
   ChatMessage,
+  HandHistoryEntry,
+  PlayerProfile,
   ClientTableState,
   HandResult,
   HandView,
@@ -118,6 +120,7 @@ export function mockState(variant: MockVariant): ClientTableState {
 
   return {
     tableId: 'mock',
+    tableName: 'Mesa K7QX',
     serverNow: Date.now(),
     config: { maxSeats: 6, smallBlind: 5, bigBlind: 10, startingStack: 1000, actionTimeoutSec: 30 },
     table: {
@@ -134,6 +137,51 @@ export function mockState(variant: MockVariant): ClientTableState {
       ...names.map((name, i) => ({ playerId: `p${i}`, name, seat: i === 4 ? null : i === 2 ? 2 : i, connected: name !== 'Elisa' })),
       { playerId: 'p9', name: 'Fábio', seat: null, connected: true },
     ],
+    history: mockHistory(),
+  };
+}
+
+export function mockHistory(): HandHistoryEntry[] {
+  const now = Date.now();
+  return [
+    {
+      handNumber: 11,
+      at: now - 60_000,
+      board: ['Ks', '9d', '4c', '4h', 'Ah'],
+      pots: [{ amount: 480, winners: ['Bruno'] }],
+      players: [
+        { seat: 0, name: 'Ana', folded: false, net: -240, cards: ['Kh', 'Qd'], handName: "Two Pair, K's & 4's", category: 'two-pair', best: ['Kh', 'Ks', '4c', '4h', 'Ah'] },
+        { seat: 1, name: 'Bruno', folded: false, net: 240, cards: ['As', 'Jc'], handName: "Two Pair, A's & 4's", category: 'two-pair', best: ['As', 'Ah', '4c', '4h', 'Ks'] },
+        { seat: 2, name: 'Carla', folded: true, net: 0, cards: null, handName: null, category: null, best: null },
+        { seat: 3, name: 'Diego', folded: true, net: -10, cards: null, handName: null, category: null, best: null },
+      ],
+    },
+    {
+      handNumber: 10,
+      at: now - 150_000,
+      board: ['7c', '7d', '2s'],
+      pots: [{ amount: 60, winners: ['Diego'] }],
+      players: [
+        { seat: 0, name: 'Ana', folded: true, net: -20, cards: null, handName: null, category: null, best: null },
+        { seat: 1, name: 'Bruno', folded: true, net: -10, cards: null, handName: null, category: null, best: null },
+        { seat: 3, name: 'Diego', folded: false, net: 30, cards: null, handName: null, category: null, best: null },
+      ],
+    },
+  ];
+}
+
+export function mockProfile(playerId: string): PlayerProfile {
+  const names: Record<string, string> = { p0: 'Ana', p1: 'Bruno', p2: 'Carla', p3: 'Diego', p5: 'Elisa', p9: 'Fábio' };
+  const day = 86_400_000;
+  const now = Date.now();
+  const amounts = [240, -120, 0, 75, -300, 410, -45, 30, -10, 160];
+  return {
+    name: names[playerId] ?? 'Jogador',
+    month: new Date().toISOString().slice(0, 7),
+    balance: playerId === 'p1' ? 1840 : -650,
+    handsPlayed: 137,
+    biggestPotWon: 1260,
+    recent: amounts.map((amount, i) => ({ at: now - i * 0.37 * day, table: i < 4 ? 'Mesa K7QX' : 'Mesa P3MZ', amount })),
   };
 }
 
