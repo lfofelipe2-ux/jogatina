@@ -116,6 +116,27 @@ describe('TableRoom', () => {
     });
   });
 
+  describe('rejoining after a kick', () => {
+    it('a kicked player who rejoins under the same name is bought in again, so net is not inflated', async () => {
+      const { room, a, pa, pb } = await handInProgress();
+      room.action(pa, { type: 'fold' });
+      await flush();
+      expect(lastState(a).table.seats[1]!.stack).toBe(1005);
+
+      room.kick(pa, pb);
+      const c = fakeSocket();
+      const pc = joined(room, c, { tableId: 't1', name: 'Bob' }).playerId;
+      room.sit(pc, 1);
+      await flush();
+
+      const st = lastState(c);
+      const row = st.scoreboard['Bob']!;
+      expect(st.table.seats[1]!.stack).toBe(1000);
+      expect(row.invested).toBe(1000 + 1000);
+      expect(row.net).toBe(st.table.seats[1]!.stack - row.invested);
+    });
+  });
+
   describe('join', () => {
     it('re-joining from the same socket keeps the same player', async () => {
       const room = makeRoom();

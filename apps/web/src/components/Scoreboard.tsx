@@ -18,21 +18,21 @@ export default function Scoreboard({ scoreboard, online }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[320px] text-left text-xs sm:text-sm">
-        <thead className="text-[10px] uppercase tracking-wide text-slate-400 sm:text-[11px]">
+      <table className="w-full min-w-[280px] text-left text-xs sm:text-sm">
+        <thead className="whitespace-nowrap text-[11px] text-slate-300">
           <tr className="border-b border-slate-700">
-            <th className="py-1.5 pr-2 font-medium">Jogador</th>
+            <th className="py-1.5 pr-1 font-medium">Jogador</th>
             <th className="px-1 text-right font-medium">Fichas</th>
             <th className="px-1 text-right font-medium">Saldo</th>
-            <th className="px-1 text-right font-medium">Mãos ganhas</th>
-            <th className="px-1 text-right font-medium">Maior pote</th>
-            <th className="pl-1 text-right font-medium">Mãos jogadas</th>
+            <th className="px-1 text-right font-medium" title="Mãos ganhas">Ganhas</th>
+            <th className="px-1 text-right font-medium" title="Maior pote">Maior</th>
+            <th className="pl-1 text-right font-medium" title="Mãos jogadas">Jogadas</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.name} className={`border-b border-slate-800 ${here.has(r.name) ? '' : 'text-slate-500'}`}>
-              <td className="max-w-[7rem] truncate py-1.5 pr-2" title={r.name}>
+            <tr key={r.name} className={`border-b border-slate-800 ${here.has(r.name) ? '' : 'text-slate-400'}`}>
+              <td className="max-w-[7rem] truncate py-1.5 pr-1" title={r.name}>
                 {r.name}
               </td>
               <td className="px-1 text-right tabular-nums">{fmt(r.stack)}</td>

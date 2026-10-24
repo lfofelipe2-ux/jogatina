@@ -53,6 +53,17 @@ export function int(v: unknown, min: number, max: number, message = 'Configuraç
   return v;
 }
 
+/** Key for remembered off-table stacks: a kicked player who rejoins under the same name gets a new playerId. */
+function nameKey(name: string): string {
+  return name.trim().toLocaleLowerCase();
+}
+
+/** Buy-in for a name whose scoreboard row already exists: the chips it had left with it, so the row restarts from zero. */
+function buyIn(sb: Scoreboard, name: string, amount: number): Scoreboard {
+  const row = sb[name]!;
+  return recordTopUp({ ...sb, [name]: { ...row, stack: 0, net: -row.invested } }, name, amount);
+}
+
 interface PlayerRecord {
   playerId: string;
   name: string;
@@ -80,6 +91,7 @@ export class TableRoom {
   private started = false;
   private scoreboard: Scoreboard = {};
   private readonly players = new Map<string, PlayerRecord>();
+  /** Chips a player stood up with, keyed by nameKey(name). Cleared on kick. */
   private readonly stacks = new Map<string, number>();
   private readonly pendingStandUp = new Set<string>();
   private readonly pendingSitOut = new Set<string>();
@@ -168,12 +180,18 @@ export class TableRoom {
     }
     if (current !== null) throw new UserError('Você já está sentado');
     if (this.state.seats[seat]) throw new UserError('Lugar ocupado');
-    const remembered = this.stacks.get(playerId);
-    const stack = remembered !== undefined && remembered > 0 ? remembered : this.startingStack;
+    const key = nameKey(p.name);
+    const remembered = this.stacks.get(key) ?? 0;
+    const returning = remembered > 0;
+    const stack = returning ? remembered : this.startingStack;
     this.state = sitDown(this.state, seat, { playerId, name: p.name, stack });
-    if (!this.scoreboard[p.name]) this.scoreboard = ensurePlayer(this.scoreboard, p.name, this.startingStack);
-    else if (remembered === 0) this.scoreboard = recordTopUp(this.scoreboard, p.name, this.startingStack);
-    this.stacks.delete(playerId);
+    // Returning with chips adds no money; anything else is a fresh buy-in that must be counted in invested.
+    if (!returning) {
+      this.scoreboard = Object.hasOwn(this.scoreboard, p.name)
+        ? buyIn(this.scoreboard, p.name, this.startingStack)
+        : ensurePlayer(this.scoreboard, p.name, this.startingStack);
+    }
+    this.stacks.delete(key);
     this.commit();
   }
 
@@ -210,9 +228,11 @@ export class TableRoom {
     const target = typeof targetId === 'string' ? this.players.get(targetId) : undefined;
     if (!target) throw new UserError('Jogador não encontrado');
     if (target.playerId === playerId) throw new UserError('Você não pode se expulsar');
+    // Remove the player first so releaseSeat does not remember the kicked stack (also when the hand settles later).
+    this.players.delete(target.playerId);
+    this.stacks.delete(nameKey(target.name));
     this.releaseSeat(target.playerId);
     if (target.graceTimer) clearTimeout(target.graceTimer);
-    this.players.delete(target.playerId);
     for (const s of [...this.sockets]) {
       if (s.data.playerId !== target.playerId) continue;
       this.sockets.delete(s);
@@ -310,7 +330,7 @@ export class TableRoom {
     }
     const s = this.state.seats[seat];
     if (!s) return;
-    this.stacks.set(playerId, s.stack);
+    if (this.players.has(playerId)) this.stacks.set(nameKey(s.name), s.stack);
     this.pendingStandUp.delete(playerId);
     this.state = engineStandUp(this.state, seat);
   }
