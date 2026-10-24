@@ -42,32 +42,32 @@ export default function ActionBar({ legal, pot, currentBet, disabled = false }: 
   const sized = (factor: number) => clamp(currentBet + (pot + legal.callAmount) * factor);
 
   return (
-    <div className="sticky bottom-0 z-20 -mx-3 border-t border-slate-700 bg-slate-900/95 p-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
-      <p className="mb-2 text-center text-xs font-bold uppercase tracking-wide text-amber-300">Sua vez</p>
+    <div className="sticky bottom-0 z-20 -mx-3 border-t border-slate-700 bg-slate-900/95 px-3 py-2 backdrop-blur sm:static sm:mx-0 sm:mt-2 sm:rounded-xl sm:border sm:p-3">
+      <p className="mb-1.5 text-center text-xs font-bold uppercase leading-none tracking-wide text-amber-300 sm:mb-2 sm:leading-normal">Sua vez</p>
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
           disabled={busy || !legal.canFold}
           onClick={() => send('fold')}
-          className={`${btnDanger} py-3`}
+          className={`${btnDanger} py-2.5 sm:py-3`}
         >
           Desistir
         </button>
         {legal.canCheck ? (
-          <button type="button" disabled={busy} onClick={() => send('check')} className="rounded-lg bg-slate-600 py-3 text-sm font-bold text-white hover:bg-slate-500 disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => send('check')} className="rounded-lg bg-slate-600 py-2.5 text-sm font-bold text-white hover:bg-slate-500 disabled:opacity-50">
             Passar
           </button>
         ) : (
-          <button type="button" disabled={busy} onClick={() => send('call')} className="rounded-lg bg-sky-600 py-3 text-sm font-bold text-white hover:bg-sky-500 disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => send('call')} className="rounded-lg bg-sky-600 py-2.5 text-sm font-bold text-white hover:bg-sky-500 disabled:opacity-50">
             Pagar {fmt(legal.callAmount)}
           </button>
         )}
       </div>
 
       {canSize && (
-        <div className="mt-3 flex flex-col gap-2">
+        <div className="mt-2 flex flex-col gap-1.5 sm:mt-3 sm:gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-300">{legal.canBet ? 'Apostar' : 'Aumentar para'}</span>
+            <span className="shrink-0 text-sm text-slate-300">{legal.canBet ? 'Apostar' : 'Aumentar para'}</span>
             <input
               type="number"
               inputMode="numeric"
@@ -81,22 +81,22 @@ export default function ActionBar({ legal, pot, currentBet, disabled = false }: 
                 if (e.target.value.trim() !== '' && Number.isFinite(v)) setAmount(clamp(v));
               }}
               onBlur={() => setDraft(null)}
-              className={`${input} w-28 text-right text-base font-semibold tabular-nums`}
+              className={`${input} w-20 shrink-0 py-1 text-right text-base font-semibold tabular-nums sm:w-28 sm:py-1.5`}
+            />
+            <input
+              type="range"
+              min={legal.minTo}
+              max={legal.maxTo}
+              step={1}
+              value={shown}
+              disabled={busy}
+              onChange={(e) => {
+                setDraft(null);
+                setAmount(Number(e.target.value));
+              }}
+              className="min-w-0 flex-1 accent-amber-400"
             />
           </div>
-          <input
-            type="range"
-            min={legal.minTo}
-            max={legal.maxTo}
-            step={1}
-            value={shown}
-            disabled={busy}
-            onChange={(e) => {
-              setDraft(null);
-              setAmount(Number(e.target.value));
-            }}
-            className="w-full accent-amber-400"
-          />
           <div className="grid grid-cols-4 gap-1.5 text-xs">
             <Quick label="½ pote" disabled={busy} onClick={() => pick(sized(0.5))} />
             <Quick label="¾ pote" disabled={busy} onClick={() => pick(sized(0.75))} />
@@ -110,7 +110,7 @@ export default function ActionBar({ legal, pot, currentBet, disabled = false }: 
               setDraft(null);
               send(legal.canBet ? 'bet' : 'raise', shown);
             }}
-            className={`${btnPrimary} w-full py-3 text-base`}
+            className={`${btnPrimary} w-full py-2.5 text-base sm:py-3`}
           >
             {legal.canBet ? 'Apostar' : 'Aumentar'} {fmt(shown)}
           </button>
@@ -126,7 +126,7 @@ function Quick({ label, disabled, onClick }: { label: string; disabled: boolean;
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="rounded-md bg-slate-700 py-1.5 font-medium text-slate-100 hover:bg-slate-600 disabled:opacity-50"
+      className="rounded-md bg-slate-700 py-1 font-medium sm:py-1.5 text-slate-100 hover:bg-slate-600 disabled:opacity-50"
     >
       {label}
     </button>
