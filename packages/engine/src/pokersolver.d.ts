@@ -7,4 +7,6 @@ declare module 'pokersolver' {
     rank: number;
     cards: unknown[];
   }
+  const pokersolver: { Hand: typeof Hand };
+  export default pokersolver;
 }

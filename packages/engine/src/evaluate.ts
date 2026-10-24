@@ -1,5 +1,8 @@
-import { Hand } from 'pokersolver';
+// pokersolver is CommonJS: Node's ESM loader only exposes its default export.
+import pokersolver from 'pokersolver';
 import type { Card } from './types';
+
+const { Hand } = pokersolver;
 
 export interface Evaluated { seat: number; handName: string }
 
