@@ -17,6 +17,15 @@ import { monthOf, openLedger, type Ledger } from './ledger';
 
 type Client = ClientSocket<ServerToClientEvents, ClientToServerEvents>;
 
+const previousTrust = process.env.TRUST_PROXY_EMAIL;
+beforeAll(() => {
+  process.env.TRUST_PROXY_EMAIL = '1';
+});
+afterAll(() => {
+  if (previousTrust === undefined) delete process.env.TRUST_PROXY_EMAIL;
+  else process.env.TRUST_PROXY_EMAIL = previousTrust;
+});
+
 const ack = <T>(send: (cb: (r: T) => void) => void): Promise<T> => new Promise((resolve) => send(resolve));
 const CONFIG = { smallBlind: 5, bigBlind: 10, startingStack: 1000, maxSeats: 6, actionTimeoutSec: 30 };
 

@@ -116,7 +116,7 @@ export function openLedger(file: string, now: () => number = Date.now): Ledger {
   // Columns added after the first release; ALTER ... ADD COLUMN keeps every existing row.
   const cols = new Set((db.prepare('PRAGMA table_info(entries)').all() as { name: string }[]).map((c) => c.name));
   if (!cols.has('table_name')) db.exec('ALTER TABLE entries ADD COLUMN table_name TEXT');
-  if (!cols.has('payout')) db.exec('ALTER TABLE entries ADD COLUMN payout INTEGER');
+  if (!cols.has('payout')) db.exec('ALTER TABLE entries ADD COLUMN payout REAL');
   const insert = db.prepare(
     'INSERT INTO entries (at, month, identity, kind, amount, table_name, payout) VALUES (?, ?, ?, ?, ?, ?, ?)',
   );
