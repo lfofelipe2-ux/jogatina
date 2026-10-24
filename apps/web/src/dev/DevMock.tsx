@@ -20,7 +20,7 @@ const mockApi: GameApi = {
 
 export default function DevMock() {
   const v = new URLSearchParams(window.location.search).get('v');
-  const variant: MockVariant = v === 'result' ? v : 'play';
+  const variant: MockVariant = v === 'result' || v === 'split' ? v : 'play';
   return (
     <GameProvider api={mockApi}>
       <GameView state={mockState(variant)} chat={mockChat()} onRotated={() => {}} />
