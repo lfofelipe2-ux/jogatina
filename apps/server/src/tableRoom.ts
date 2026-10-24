@@ -27,6 +27,7 @@ import {
   type TableConfig,
   type TableState,
 } from '@poker/engine';
+import { handDeltas, sitDebit, type Ledger } from './ledger';
 
 export interface SocketData {
   room?: TableRoom;
@@ -79,6 +80,7 @@ export interface RoomInit {
   config: TableConfig;
   startingStack: number;
   actionTimeoutSec: number;
+  ledger?: Ledger;
 }
 
 export class TableRoom {
@@ -86,6 +88,7 @@ export class TableRoom {
   readonly hostToken: string;
   readonly startingStack: number;
   readonly actionTimeoutSec: number;
+  private readonly ledger?: Ledger;
 
   private state: TableState;
   private started = false;
@@ -112,6 +115,7 @@ export class TableRoom {
     this.hostToken = init.hostToken;
     this.startingStack = init.startingStack;
     this.actionTimeoutSec = init.actionTimeoutSec;
+    this.ledger = init.ledger;
     this.onDelete = onDelete;
     this.state = createTable(init.config);
     this.refreshDeleteTimer();
@@ -184,7 +188,10 @@ export class TableRoom {
     const remembered = this.stacks.get(key) ?? 0;
     const returning = remembered > 0;
     const stack = returning ? remembered : this.startingStack;
-    this.state = sitDown(this.state, seat, { playerId, name: p.name, stack });
+    const next = sitDown(this.state, seat, { playerId, name: p.name, stack });
+    // Debit before the seat is taken, so a failed write leaves the player standing.
+    if (!returning) this.ledger?.append([sitDebit(p.name, this.startingStack)]);
+    this.state = next;
     // Returning with chips adds no money; anything else is a fresh buy-in that must be counted in invested.
     if (!returning) {
       this.scoreboard = Object.hasOwn(this.scoreboard, p.name)
@@ -360,6 +367,11 @@ export class TableRoom {
     const end = out.find((e): e is Extract<GameEvent, { type: 'handEnded' }> => e.type === 'handEnded');
     if (!end) return;
     this.scoreboard = recordHand(this.scoreboard, this.state, end.result);
+    try {
+      this.ledger?.append(handDeltas(this.state, end.result));
+    } catch (e) {
+      console.error('[ledger]', e);
+    }
     this.lastHandEnded = true;
     for (const pid of [...this.pendingSitOut]) {
       this.pendingSitOut.delete(pid);
