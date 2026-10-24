@@ -1,13 +1,22 @@
-import type { ClientTableState, HandResult } from '@poker/engine';
+import type { ClientTableState } from '@poker/engine';
 import Card from './Card';
 import Seat, { type Tag } from './Seat';
+import ShowdownPanel from './ShowdownPanel';
 import { Countdown } from './Timer';
 import { useGame } from './GameContext';
-import { fmt, joinNames, STREET_LABEL } from '../lib/format';
+import { useTableFx, type BadgeTone, type Pt } from './useTableFx';
+import { fmt, STREET_LABEL } from '../lib/format';
 
 // Seats sit on the felt rim, with a small inset (percent of the table box).
 const RX = 40;
 const RY = 40;
+const POT: Pt = { left: '50%', top: '46%' };
+
+const BADGE_TONE: Record<BadgeTone, string> = {
+  allin: 'bg-red-600 text-white ring-red-300/70',
+  pot: 'bg-amber-400 text-slate-900 ring-amber-200/80',
+  rare: 'bg-fuchsia-600 text-white ring-fuchsia-300/70',
+};
 
 export default function Table({ state }: { state: ClientTableState }) {
   const { api, toast } = useGame();
@@ -39,6 +48,13 @@ export default function Table({ state }: { state: ClientTableState }) {
     };
   };
 
+  const seatPt = (seat: number): Pt => {
+    const p = pos(seat);
+    return { left: `${p.x}%`, top: `${p.y}%` };
+  };
+  const { flyers, badges, dealDelays } = useTableFx(state, { seatPt, betPt: chipStyle, potPt: POT });
+  const payouts = hand?.finished ? hand.result?.payouts : undefined;
+
   const tagsOf = (seat: number): Tag[] => {
     if (!hand) return [];
     const tags: Tag[] = [];
@@ -55,7 +71,7 @@ export default function Table({ state }: { state: ClientTableState }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      {hand?.finished && hand.result && <ResultBanner result={hand.result} nameOf={nameOf} />}
+      {hand?.finished && hand.result && <ShowdownPanel result={hand.result} nameOf={nameOf} />}
       <div className="relative grid min-h-0 flex-1 place-items-center [container-type:size]">
         <div className="table-box relative [container-type:inline-size] [--chip-dx:max(66px,10cqw)] [--chip-dy-bottom:max(80px,11.5cqw)] [--chip-dy-top:max(62px,10cqw)]">
           <div className="felt absolute inset-[4%] rounded-[50%] border-[12px] border-emerald-950 shadow-[inset_0_0_30px_rgba(0,0,0,0.35),0_12px_30px_rgba(0,0,0,0.45)] sm:inset-x-[3%] sm:inset-y-[6%]" />
@@ -91,7 +107,7 @@ export default function Table({ state }: { state: ClientTableState }) {
                 </span>
                 <div className="flex gap-1">
                   {[0, 1, 2, 3, 4].map((i) => (
-                    <Card key={i} card={hand.board[i]} size="md" slot />
+                    <Card key={i} card={hand.board[i]} size="md" slot flip />
                   ))}
                 </div>
               </>
@@ -119,6 +135,9 @@ export default function Table({ state }: { state: ClientTableState }) {
                 timeoutSec={state.config.actionTimeoutSec}
                 canSit={you.seat === null}
                 onSit={sit}
+                won={payouts?.[seat]}
+                handKey={hand?.handNumber}
+                dealDelay={dealDelays[seat]}
               />
             );
           })}
@@ -127,29 +146,54 @@ export default function Table({ state }: { state: ClientTableState }) {
             if (!view || view.committedThisStreet <= 0) return null;
             return (
               <div
-                key={`bet${seat}`}
-                className="absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-200 bg-amber-500 px-1.5 py-0.5 text-xs font-bold leading-none tabular-nums text-slate-900 shadow"
-                style={chipStyle(seat)}
+                key={`bet${seat}-${view.committedThisStreet}`}
+                className="fx-slide absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-200 bg-amber-500 px-1.5 py-0.5 text-xs font-bold leading-none tabular-nums text-slate-900 shadow"
+                style={flyVars(seatPt(seat), chipStyle(seat))}
               >
                 {fmt(view.committedThisStreet)}
               </div>
             );
           })}
+
+          {flyers.map((f) => (
+            <div
+              key={f.id}
+              aria-hidden
+              className={`fx-fly pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 ${
+                f.kind === 'card'
+                  ? 'card-back h-9 w-6 rounded-[4px] border border-blue-900/80 shadow-md sm:h-11 sm:w-8'
+                  : 'h-4 w-4 rounded-full border-2 border-dashed border-amber-100 bg-amber-500 shadow'
+              }`}
+              style={{ ...flyVars(f.from, f.to), animationDelay: `${f.delay}ms` }}
+            />
+          ))}
+
+          {badges.length > 0 && (
+            <div className="pointer-events-none absolute left-1/2 top-[27%] z-40 flex -translate-x-1/2 flex-col items-center gap-1 sm:top-[24%]">
+              {badges.map((b) => (
+                <span
+                  key={b.id}
+                  className={`fx-badge whitespace-nowrap rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-wide shadow-lg ring-2 sm:text-sm ${BADGE_TONE[b.tone]}`}
+                >
+                  {b.text}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function ResultBanner({ result, nameOf }: { result: HandResult; nameOf: (seat: number) => string }) {
-  return (
-    <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-center text-sm text-amber-100">
-      {result.pots.map((pot, i) => (
-        <p key={i}>
-          {joinNames(pot.winners.map(nameOf))} {pot.winners.length > 1 ? 'dividem' : 'ganha'} {fmt(pot.amount)}
-          {pot.handName ? ` com ${pot.handName}` : ' (todos desistiram)'}
-        </p>
-      ))}
-    </div>
-  );
+/** Start and end points for the fx-fly / fx-slide keyframes; the end point is also the resting position. */
+function flyVars(from: Pt, to: Pt) {
+  return {
+    left: to.left,
+    top: to.top,
+    '--x0': from.left,
+    '--y0': from.top,
+    '--x1': to.left,
+    '--y1': to.top,
+  } as React.CSSProperties;
 }

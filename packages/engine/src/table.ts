@@ -147,7 +147,7 @@ function endHand(state: TableState, events: GameEvent[]): void {
   if (!foldWin) {
     const evaluated = findWinners(live.map((p) => ({ seat: p.seat, cards: [...p.holeCards, ...hand.board] })));
     Object.assign(handNames, evaluated.names);
-    for (const p of live) showdown[p.seat] = { cards: p.holeCards, handName: handNames[p.seat] };
+    for (const p of live) showdown[p.seat] = { cards: p.holeCards, handName: handNames[p.seat], ...evaluated.made[p.seat] };
   }
 
   const clockwise: number[] = [];
@@ -156,9 +156,10 @@ function endHand(state: TableState, events: GameEvent[]): void {
   const payouts: Record<number, number> = {};
   const pots: PotResult[] = [];
   for (const pot of computePots(hand)) {
-    const winners = pot.eligibleSeats.length === 1
-      ? pot.eligibleSeats
-      : findWinners(pot.eligibleSeats.map((seat) => ({ seat, cards: [...hand.players[seat].holeCards, ...hand.board] }))).winners;
+    const contested = pot.eligibleSeats.length > 1
+      ? findWinners(pot.eligibleSeats.map((seat) => ({ seat, cards: [...hand.players[seat].holeCards, ...hand.board] })))
+      : null;
+    const winners = contested ? contested.winners : pot.eligibleSeats;
     const ordered = clockwise.filter((seat) => winners.includes(seat));
     const share = Math.floor(pot.amount / ordered.length);
     const odd = pot.amount - share * ordered.length;
@@ -167,7 +168,12 @@ function endHand(state: TableState, events: GameEvent[]): void {
       payouts[seat] = (payouts[seat] ?? 0) + amount;
       state.seats[seat]!.stack += amount;
     });
-    pots.push({ amount: pot.amount, winners: ordered, ...(foldWin ? {} : { handName: handNames[ordered[0]] }) });
+    pots.push({
+      amount: pot.amount,
+      winners: ordered,
+      ...(foldWin ? {} : { handName: handNames[ordered[0]] }),
+      ...(contested ? { decision: contested.decision } : {}),
+    });
   }
 
   const result: HandResult = { pots, payouts, showdown, names };

@@ -44,11 +44,32 @@ export interface Pot {
   eligibleSeats: number[];
 }
 
+export type HandCategory =
+  | 'high-card'
+  | 'pair'
+  | 'two-pair'
+  | 'trips'
+  | 'straight'
+  | 'flush'
+  | 'full-house'
+  | 'quads'
+  | 'straight-flush';
+
+/** Why the winners of a contested pot beat the best losing hand. */
+export interface PotDecision {
+  /** Best losing seat among the pot's contenders; absent when every contender tied. */
+  runnerUp?: number;
+  /** Index into both seats' showdown `best` where the winner first outranks runnerUp; absent when the category alone decided. */
+  cardIndex?: number;
+}
+
 export interface PotResult {
   amount: number;
   winners: number[];
   /** pokersolver hand description of the winning hand; absent when everyone else folded. */
   handName?: string;
+  /** Present when two or more seats contested the pot at showdown. */
+  decision?: PotDecision;
 }
 
 export interface HandResult {
@@ -56,7 +77,7 @@ export interface HandResult {
   /** Chips paid to each seat this hand (seat index -> amount). */
   payouts: Record<number, number>;
   /** Hole cards and hand name of every seat that reached showdown without folding. Empty when the hand ended by folds. */
-  showdown: Record<number, { cards: [Card, Card]; handName: string }>;
+  showdown: Record<number, { cards: [Card, Card]; handName: string; category?: HandCategory; best?: Card[] }>;
   /** Player name of every seat occupied when the hand ended, including seats whose player stands up later. */
   names: Record<number, string>;
 }
