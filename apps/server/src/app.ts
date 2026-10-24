@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { Server } from 'socket.io';
 import { EngineError, type ClientToServerEvents, type ServerToClientEvents, type SimpleResponse } from '@poker/engine';
+import type { Ledger } from './ledger';
 import { TableManager } from './tableManager';
 import { UserError, type AppSocket, type SocketData, type TableRoom } from './tableRoom';
 
@@ -53,10 +54,10 @@ function roomOf(socket: AppSocket): { room: TableRoom; playerId: string } {
   return { room, playerId };
 }
 
-export function createApp() {
+export function createApp(opts: { ledger?: Ledger } = {}) {
   const app = express();
   const httpServer = createServer(app);
-  const manager = new TableManager();
+  const manager = new TableManager(opts.ledger);
   const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer);
 
   app.get('/health', (_req, res) => {

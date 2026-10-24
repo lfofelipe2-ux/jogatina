@@ -1,8 +1,11 @@
 import type { CreateTableResponse } from '@poker/engine';
+import type { Ledger } from './ledger';
 import { TableRoom, int, newToken } from './tableRoom';
 
 export class TableManager {
   private readonly tables = new Map<string, TableRoom>();
+
+  constructor(private readonly ledger?: Ledger) {}
 
   get size(): number {
     return this.tables.size;
@@ -29,7 +32,7 @@ export class TableManager {
     while (this.tables.has(id)) id = newToken();
     const hostToken = newToken();
     const room = new TableRoom(
-      { id, hostToken, config: { maxSeats, smallBlind, bigBlind }, startingStack, actionTimeoutSec },
+      { id, hostToken, config: { maxSeats, smallBlind, bigBlind }, startingStack, actionTimeoutSec, ledger: this.ledger },
       (t) => this.remove(t),
     );
     this.tables.set(id, room);
