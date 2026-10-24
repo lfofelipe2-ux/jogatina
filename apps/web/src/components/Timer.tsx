@@ -6,12 +6,7 @@ export function syncServerClock(serverNow: number): void {
   if (Number.isFinite(serverNow)) clockOffset = serverNow - Date.now();
 }
 
-interface Props {
-  deadline: number;
-  totalSec: number;
-}
-
-export default function Timer({ deadline, totalSec }: Props) {
+function useServerNow(): number {
   const [now, setNow] = useState(() => Date.now() + clockOffset);
 
   useEffect(() => {
@@ -19,6 +14,16 @@ export default function Timer({ deadline, totalSec }: Props) {
     return () => window.clearInterval(id);
   }, []);
 
+  return now;
+}
+
+interface Props {
+  deadline: number;
+  totalSec: number;
+}
+
+export default function Timer({ deadline, totalSec }: Props) {
+  const now = useServerNow();
   const left = Math.max(0, deadline - now);
   const ratio = Math.min(1, left / (totalSec * 1000));
   const sec = Math.ceil(left / 1000);
@@ -32,6 +37,17 @@ export default function Timer({ deadline, totalSec }: Props) {
         />
       </div>
       <span className="w-6 text-right text-[10px] tabular-nums text-amber-200">{sec}s</span>
+    </div>
+  );
+}
+
+/** Seconds left, shown only in the last 10 seconds. */
+export function Countdown({ deadline, className }: { deadline: number; className: string }) {
+  const sec = Math.ceil(Math.max(0, deadline - useServerNow()) / 1000);
+  if (sec > 10) return null;
+  return (
+    <div className={`pointer-events-none font-bold tabular-nums ${className}`} role="timer" aria-label={`${sec} segundos`}>
+      {sec}
     </div>
   );
 }

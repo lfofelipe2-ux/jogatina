@@ -2,6 +2,7 @@ import type { ChatBody, ClientTableState, HandResult } from '@poker/engine';
 import Card from './Card';
 import { MessageBody } from './ChatPanel';
 import Seat, { type Tag } from './Seat';
+import { Countdown } from './Timer';
 import { useGame } from './GameContext';
 import { fmt, joinNames, STREET_LABEL } from '../lib/format';
 
@@ -26,8 +27,8 @@ export default function Table({ state, bubbles = {} }: { state: ClientTableState
     return { x: 50 + RX * Math.cos(a), y: 50 + RY * Math.sin(a), cos: Math.cos(a), sin: Math.sin(a) };
   };
 
-  // Bet chips sit on the seat-to-centre line at a fixed offset from the seat box,
-  // so they never land on the board or the pot pill.
+  // Bet chips sit on the seat-to-centre line, offset by a share of the table width
+  // (with a pixel floor), so they never land on the seat, the board or the pot pill.
   const chipStyle = (seat: number) => {
     const p = pos(seat);
     const side = Math.abs(p.cos) > 0.3;
@@ -54,102 +55,110 @@ export default function Table({ state, bubbles = {} }: { state: ClientTableState
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       {hand?.finished && hand.result && <ResultBanner result={hand.result} nameOf={nameOf} />}
-      <div className="relative mx-auto mb-6 aspect-[4/5] w-full [--chip-dx:66px] [--chip-dy-bottom:80px] [--chip-dy-top:62px] sm:mb-8 sm:aspect-[16/11] sm:[--chip-dx:72px] sm:[--chip-dy-bottom:84px] sm:[--chip-dy-top:72px]">
-        <div className="felt absolute inset-x-[4%] inset-y-[9%] rounded-[50%] border-[12px] border-emerald-950 shadow-[inset_0_0_30px_rgba(0,0,0,0.35),0_12px_30px_rgba(0,0,0,0.45)]" />
+      <div className="relative grid min-h-0 flex-1 place-items-center [container-type:size]">
+        <div className="table-box relative [container-type:inline-size] [--chip-dx:max(66px,10cqw)] [--chip-dy-bottom:max(80px,11.5cqw)] [--chip-dy-top:max(62px,10cqw)]">
+          <div className="felt absolute inset-[4%] rounded-[50%] border-[12px] border-emerald-950 shadow-[inset_0_0_30px_rgba(0,0,0,0.35),0_12px_30px_rgba(0,0,0,0.45)] sm:inset-x-[3%] sm:inset-y-[6%]" />
 
-        <div className="absolute left-1/2 top-[46%] flex w-[60%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 text-center sm:top-1/2">
-          {hand ? (
-            <>
-              <div className="pot-pill whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold sm:px-2.5 sm:text-xs tabular-nums text-white">
-                {hand.pots.length === 0 && <span>Pote: 0</span>}
-                {hand.pots.map((p, i) => (
-                  <span key={i}>
-                    {i > 0 && <span className="text-emerald-200"> · </span>}
-                    {i === 0 ? (
-                      'Pote'
-                    ) : (
-                      <>
-                        <span className="sm:hidden">Paralelo</span>
-                        <span className="hidden sm:inline">Pote paralelo</span> {i}
-                      </>
-                    )}
-                    : {fmt(p.amount)}
-                  </span>
-                ))}
-              </div>
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-emerald-50">
-                {STREET_LABEL[hand.street]}
+          <div className="absolute left-1/2 top-[46%] flex w-[60%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 text-center sm:top-1/2">
+            {toActSeat !== null && toActSeat === you.seat && state.actionDeadline !== null && (
+              <Countdown
+                deadline={state.actionDeadline}
+                className="absolute bottom-full mb-1 text-6xl leading-none text-red-400 [text-shadow:0_2px_8px_rgba(0,0,0,0.6)]"
+              />
+            )}
+            {hand ? (
+              <>
+                <div className="pot-pill whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold sm:px-2.5 sm:text-xs tabular-nums text-white">
+                  {hand.pots.length === 0 && <span>Pote: 0</span>}
+                  {hand.pots.map((p, i) => (
+                    <span key={i}>
+                      {i > 0 && <span className="text-emerald-200"> · </span>}
+                      {i === 0 ? (
+                        'Pote'
+                      ) : (
+                        <>
+                          <span className="sm:hidden">Paralelo</span>
+                          <span className="hidden sm:inline">Pote paralelo</span> {i}
+                        </>
+                      )}
+                      : {fmt(p.amount)}
+                    </span>
+                  ))}
+                </div>
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-emerald-50">
+                  {STREET_LABEL[hand.street]}
+                </span>
+                <div className="flex gap-1">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <Card key={i} card={hand.board[i]} size="md" slot />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <span className="text-xs text-emerald-50">
+                {state.started ? 'Aguardando a próxima mão' : ''}
               </span>
-              <div className="flex gap-1">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <Card key={i} card={hand.board[i]} size="md" slot />
-                ))}
+            )}
+          </div>
+
+          {table.seats.map((view, seat) => {
+            const p = pos(seat);
+            const active = toActSeat === seat;
+            return (
+              <Seat
+                key={seat}
+                seat={seat}
+                x={p.x}
+                y={p.y}
+                view={view}
+                isYou={you.seat === seat}
+                tags={tagsOf(seat)}
+                toAct={active}
+                deadline={active ? state.actionDeadline : null}
+                timeoutSec={state.config.actionTimeoutSec}
+                canSit={you.seat === null}
+                onSit={sit}
+              />
+            );
+          })}
+
+          {table.seats.map((view, seat) => {
+            const body = view ? bubbles[view.playerId] : undefined;
+            if (!body) return null;
+            const p = pos(seat);
+            // Top-row seats show the bubble below the box so it stays inside the table area.
+            const below = p.sin < -0.5;
+            return (
+              <div
+                key={`chat${seat}`}
+                role="status"
+                className={`chat-pop pointer-events-none absolute z-30 max-w-[150px] -translate-x-1/2 rounded-xl bg-white px-2 py-1 text-xs text-slate-900 shadow-lg ${
+                  below ? 'translate-y-[34px]' : '-translate-y-[calc(100%+34px)]'
+                }`}
+                style={{ left: `${p.x}%`, top: `${p.y}%` }}
+              >
+                <span className="line-clamp-2 [&_span]:!text-slate-900">
+                  <MessageBody body={body} compact />
+                </span>
               </div>
-            </>
-          ) : (
-            <span className="text-xs text-emerald-50">
-              {state.started ? 'Aguardando a próxima mão' : ''}
-            </span>
-          )}
+            );
+          })}
+
+          {table.seats.map((view, seat) => {
+            if (!view || view.committedThisStreet <= 0) return null;
+            return (
+              <div
+                key={`bet${seat}`}
+                className="absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-200 bg-amber-500 px-1.5 py-0.5 text-xs font-bold leading-none tabular-nums text-slate-900 shadow"
+                style={chipStyle(seat)}
+              >
+                {fmt(view.committedThisStreet)}
+              </div>
+            );
+          })}
         </div>
-
-        {table.seats.map((view, seat) => {
-          const p = pos(seat);
-          const active = toActSeat === seat;
-          return (
-            <Seat
-              key={seat}
-              seat={seat}
-              x={p.x}
-              y={p.y}
-              view={view}
-              isYou={you.seat === seat}
-              tags={tagsOf(seat)}
-              toAct={active}
-              deadline={active ? state.actionDeadline : null}
-              timeoutSec={state.config.actionTimeoutSec}
-              canSit={you.seat === null}
-              onSit={sit}
-            />
-          );
-        })}
-
-        {table.seats.map((view, seat) => {
-          const body = view ? bubbles[view.playerId] : undefined;
-          if (!body) return null;
-          const p = pos(seat);
-          // Top-row seats show the bubble below the box so it stays inside the table area.
-          const below = p.sin < -0.5;
-          return (
-            <div
-              key={`chat${seat}`}
-              role="status"
-              className={`chat-pop pointer-events-none absolute z-30 max-w-[150px] -translate-x-1/2 rounded-xl bg-white px-2 py-1 text-xs text-slate-900 shadow-lg ${
-                below ? 'translate-y-[34px]' : '-translate-y-[calc(100%+34px)]'
-              }`}
-              style={{ left: `${p.x}%`, top: `${p.y}%` }}
-            >
-              <span className="line-clamp-2 [&_span]:!text-slate-900">
-                <MessageBody body={body} compact />
-              </span>
-            </div>
-          );
-        })}
-
-        {table.seats.map((view, seat) => {
-          if (!view || view.committedThisStreet <= 0) return null;
-          return (
-            <div
-              key={`bet${seat}`}
-              className="absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-200 bg-amber-500 px-1.5 py-0.5 text-xs font-bold leading-none tabular-nums text-slate-900 shadow"
-              style={chipStyle(seat)}
-            >
-              {fmt(view.committedThisStreet)}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
