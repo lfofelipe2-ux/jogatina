@@ -18,7 +18,7 @@ export const MADE_COUNT: Record<HandCategory, number> = {
   'two-pair': 4,
   trips: 3,
   straight: 5,
-  flush: 1,
+  flush: 5,
   'full-house': 5,
   quads: 4,
   'straight-flush': 5,
