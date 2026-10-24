@@ -107,10 +107,16 @@ export function analyze(hole: Card[] | null, board: Card[]): Analysis {
     ? RANKS.flatMap((r) => SUITS.map((s) => `${r}${s}` as Card)).filter((c) => !known.includes(c))
     : [];
 
+  let bestMade: ReturnType<typeof findRanking> = null;
   for (const { id } of RANKINGS) {
     const made = hole ? findRanking(id, known) : null;
-    if (made) best = id;
-    rows[id] = { made, outs: 0, draw: null };
+    if (made) {
+      best = id;
+      bestMade = made;
+    }
+  }
+  for (const { id } of RANKINGS) {
+    rows[id] = { made: id === best ? bestMade : null, outs: 0, draw: null };
   }
   if (!best) return { best, rows };
 
