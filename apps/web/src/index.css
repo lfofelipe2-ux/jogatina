@@ -9,6 +9,17 @@
 }
 
 @layer components {
+  /* Sized from both the stage width and height: a tall oval on phone, 16:10 above. */
+  .table-box {
+    aspect-ratio: 3 / 5;
+    width: min(100cqw, 100cqh * 3 / 5);
+  }
+  @media (min-width: 640px) {
+    .table-box {
+      aspect-ratio: 16 / 10;
+      width: min(100cqw, 100cqh * 16 / 10);
+    }
+  }
   .felt {
     background: radial-gradient(ellipse at center, #059669 0%, #047857 60%, #065f46 100%);
   }

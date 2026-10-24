@@ -21,7 +21,8 @@ interface Props {
 }
 
 const WRAP = 'absolute z-10 -translate-x-1/2 -translate-y-1/2';
-const BOX = 'w-[84px] sm:w-[104px]';
+// Seats grow with the table box (a size container): 84px up to 136px.
+const BOX = 'w-[clamp(84px,12cqw,136px)]';
 
 function Badge({ className, children }: { className: string; children: ReactNode }) {
   return <span className={`rounded px-1 text-[11px] font-bold leading-4 text-white ${className}`}>{children}</span>;
