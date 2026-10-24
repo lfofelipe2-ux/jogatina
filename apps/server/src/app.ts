@@ -6,6 +6,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import { EngineError, type ClientToServerEvents, type ServerToClientEvents, type SimpleResponse } from '@poker/engine';
 import { GifService, UpstreamBusy } from './gifs';
+import type { Ledger } from './ledger';
 import { TableManager } from './tableManager';
 import { UserError, type AppSocket, type SocketData, type TableRoom } from './tableRoom';
 
@@ -57,12 +58,12 @@ function roomOf(socket: AppSocket): { room: TableRoom; playerId: string } {
   return { room, playerId };
 }
 
-export function createApp({ gifs = new GifService() }: { gifs?: GifService } = {}) {
+export function createApp({ gifs = new GifService(), ledger }: { gifs?: GifService; ledger?: Ledger } = {}) {
   const app = express();
   // Caddy (loopback or the Docker network) appends the visitor to X-Forwarded-For after checking Cloudflare's ranges.
   app.set('trust proxy', 'loopback, uniquelocal');
   const httpServer = createServer(app);
-  const manager = new TableManager();
+  const manager = new TableManager(ledger);
   const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer);
 
   app.get('/health', (_req, res) => {
