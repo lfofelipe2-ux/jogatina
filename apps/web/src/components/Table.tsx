@@ -74,10 +74,10 @@ export default function Table({ state, bubbles = {} }: { state: ClientTableState
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       {hand?.finished && hand.result && <ShowdownPanel result={hand.result} nameOf={nameOf} />}
       <div className="relative grid min-h-0 flex-1 place-items-center [container-type:size]">
-        <div className="table-box relative [container-type:inline-size] [--chip-dx:max(66px,10cqw)] [--chip-dy-bottom:max(80px,11.5cqw)] [--chip-dy-top:max(62px,10cqw)]">
+        <div className="table-box relative [container-type:inline-size] [--chip-dx:max(66px,10cqw)] [--chip-dy-bottom:max(80px,11.5cqw)] [--chip-dy-top:max(62px,10cqw)] [--card-xs:clamp(34px,4.6cqw,52px)] [--card-md:clamp(42px,8.6cqw,78px)]">
           <div className="felt absolute inset-[4%] rounded-[50%] border-[12px] border-emerald-950 shadow-[inset_0_0_30px_rgba(0,0,0,0.35),0_12px_30px_rgba(0,0,0,0.45)] sm:inset-x-[3%] sm:inset-y-[6%]" />
 
-          <div className="absolute left-1/2 top-[46%] flex w-[60%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 text-center sm:top-1/2">
+          <div className="absolute left-1/2 top-[46%] flex w-[72%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 text-center sm:top-1/2">
             {toActSeat !== null && toActSeat === you.seat && state.actionDeadline !== null && (
               <Countdown
                 deadline={state.actionDeadline}
@@ -184,7 +184,7 @@ export default function Table({ state, bubbles = {} }: { state: ClientTableState
               aria-hidden
               className={`fx-fly pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 ${
                 f.kind === 'card'
-                  ? 'card-back h-9 w-6 rounded-[4px] border border-blue-900/80 shadow-md sm:h-11 sm:w-8'
+                  ? 'card-back aspect-[167/243] w-[var(--card-xs)] rounded-[4px] border border-blue-900/80 shadow-md'
                   : 'h-4 w-4 rounded-full border-2 border-dashed border-amber-100 bg-amber-500 shadow'
               }`}
               style={{ ...flyVars(f.from, f.to), animationDelay: `${f.delay}ms` }}
