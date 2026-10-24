@@ -6,3 +6,5 @@ export * from './pots';
 export * from './evaluate';
 export * from './view';
 export * from './scoreboard';
+export * from './chat';
+export * from './stickers';

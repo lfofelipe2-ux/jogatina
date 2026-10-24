@@ -1,3 +1,4 @@
+import type { ChatInput, ChatMessage } from './chat';
 import type { ActionType, LegalActions, Scoreboard, TableConfig, TableView } from './types';
 
 export interface CreateTableRequest {
@@ -33,6 +34,7 @@ export interface ClientToServerEvents {
   'host:start': (ack: Ack<SimpleResponse>) => void;
   'host:kick': (req: { playerId: string }, ack: Ack<SimpleResponse>) => void;
   'host:rotateLink': (ack: Ack<{ ok: true; tableId: string } | { ok: false; error: string }>) => void;
+  'chat:send': (req: ChatInput, ack: Ack<SimpleResponse>) => void;
 }
 
 export interface ClientTableState {
@@ -57,4 +59,7 @@ export interface ServerToClientEvents {
   linkRotated: (req: { tableId: string }) => void;
   kicked: () => void;
   error: (req: { message: string }) => void;
+  chat: (msg: ChatMessage) => void;
+  /** Sent once on join with the most recent messages, oldest first. */
+  'chat:history': (msgs: ChatMessage[]) => void;
 }

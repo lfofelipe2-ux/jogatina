@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import type { ClientTableState, JoinTableResponse } from '@poker/engine';
+import { CHAT_HISTORY_MAX, type ChatMessage, type ClientTableState, type JoinTableResponse } from '@poker/engine';
 import { socket } from '../socket';
 import { socketApi } from '../api';
 import { GameProvider, useGame } from '../components/GameContext';
@@ -25,6 +25,7 @@ function TableRoom({ tableId }: { tableId: string }) {
   const navigate = useNavigate();
   const { toast } = useGame();
   const [state, setState] = useState<ClientTableState | null>(null);
+  const [chat, setChat] = useState<ChatMessage[]>([]);
   const [joined, setJoined] = useState(false);
   const [joining, setJoining] = useState(
     () => readItem(rtKey(tableId)) !== null && readItem(NAME_KEY) !== null,
@@ -116,10 +117,14 @@ function TableRoom({ tableId }: { tableId: string }) {
       removeItem(rtKey(tableId));
       nameRef.current = null;
       setState(null);
+      setChat([]);
       setJoined(false);
       setKicked(true);
     };
     const onError = (e: { message: string }) => toast(e.message);
+    const onChatHistory = (msgs: ChatMessage[]) => setChat(msgs);
+    const onChat = (m: ChatMessage) =>
+      setChat((c) => (c.some((x) => x.id === m.id) ? c : [...c, m].slice(-CHAT_HISTORY_MAX)));
     const onLinkRotated = (e: { tableId: string }) => handleRotated(e.tableId);
 
     socket.on('connect', onConnect);
@@ -128,6 +133,8 @@ function TableRoom({ tableId }: { tableId: string }) {
     socket.on('kicked', onKicked);
     socket.on('error', onError);
     socket.on('linkRotated', onLinkRotated);
+    socket.on('chat:history', onChatHistory);
+    socket.on('chat', onChat);
     if (socket.connected) onConnect();
     else {
       // Arms the join timeout and makes sure the socket is connecting.
@@ -142,6 +149,8 @@ function TableRoom({ tableId }: { tableId: string }) {
         socket.off('kicked', onKicked);
       socket.off('error', onError);
       socket.off('linkRotated', onLinkRotated);
+      socket.off('chat:history', onChatHistory);
+      socket.off('chat', onChat);
     };
   }, [tableId, join, handleRotated, toast]);
 
@@ -164,7 +173,7 @@ function TableRoom({ tableId }: { tableId: string }) {
             Reconectando…
           </div>
         )}
-        <GameView state={state} onRotated={handleRotated} connected={connected} />
+        <GameView state={state} chat={chat} onRotated={handleRotated} connected={connected} />
       </>
     );
   }

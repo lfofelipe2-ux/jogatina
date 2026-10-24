@@ -8,6 +8,12 @@
   }
 }
 
+@keyframes chat-pop {
+  from {
+    opacity: 0;
+  }
+}
+
 @layer components {
   .felt {
     background: radial-gradient(ellipse at center, #059669 0%, #047857 60%, #065f46 100%);
@@ -16,6 +22,9 @@
   .pot-pill {
     background: rgba(2, 44, 34, 0.75);
     box-shadow: 0 0 0 1px rgba(209, 250, 229, 0.15);
+  }
+  .chat-pop {
+    animation: chat-pop 180ms ease-out;
   }
   .card-back {
     background: repeating-linear-gradient(45deg, #1e3a8a 0 4px, #1d4ed8 4px 8px);

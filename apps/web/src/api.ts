@@ -1,4 +1,4 @@
-import type { ActionType, SimpleResponse } from '@poker/engine';
+import type { ActionType, ChatInput, SimpleResponse } from '@poker/engine';
 import { socket, type AppSocket } from './socket';
 
 export type RotateResponse = { ok: true; tableId: string } | { ok: false; error: string };
@@ -10,6 +10,7 @@ export interface GameApi {
   start(): Promise<SimpleResponse>;
   kick(playerId: string): Promise<SimpleResponse>;
   rotateLink(): Promise<RotateResponse>;
+  chat(input: ChatInput): Promise<SimpleResponse>;
 }
 
 const TIMEOUT_MS = 10_000;
@@ -38,6 +39,7 @@ export function createSocketApi(s: AppSocket): GameApi {
     start: () => simple((ack) => s.emit('host:start', ack)),
     kick: (playerId) => simple((ack) => s.emit('host:kick', { playerId }, ack)),
     rotateLink: () => call<RotateResponse>(s, (ack) => s.emit('host:rotateLink', ack), FAIL, OFFLINE),
+    chat: (input) => simple((ack) => s.emit('chat:send', input, ack)),
   };
 }
 

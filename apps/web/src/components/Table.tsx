@@ -1,5 +1,6 @@
-import type { ClientTableState, HandResult } from '@poker/engine';
+import type { ChatBody, ClientTableState, HandResult } from '@poker/engine';
 import Card from './Card';
+import { MessageBody } from './ChatPanel';
 import Seat, { type Tag } from './Seat';
 import { useGame } from './GameContext';
 import { fmt, joinNames, STREET_LABEL } from '../lib/format';
@@ -8,7 +9,7 @@ import { fmt, joinNames, STREET_LABEL } from '../lib/format';
 const RX = 40;
 const RY = 40;
 
-export default function Table({ state }: { state: ClientTableState }) {
+export default function Table({ state, bubbles = {} }: { state: ClientTableState; bubbles?: Record<string, ChatBody> }) {
   const { api, toast } = useGame();
   const { table, you } = state;
   const hand = table.hand;
@@ -112,6 +113,28 @@ export default function Table({ state }: { state: ClientTableState }) {
               canSit={you.seat === null}
               onSit={sit}
             />
+          );
+        })}
+
+        {table.seats.map((view, seat) => {
+          const body = view ? bubbles[view.playerId] : undefined;
+          if (!body) return null;
+          const p = pos(seat);
+          // Top-row seats show the bubble below the box so it stays inside the table area.
+          const below = p.sin < -0.5;
+          return (
+            <div
+              key={`chat${seat}`}
+              role="status"
+              className={`chat-pop pointer-events-none absolute z-30 max-w-[150px] -translate-x-1/2 rounded-xl bg-white px-2 py-1 text-xs text-slate-900 shadow-lg ${
+                below ? 'translate-y-[34px]' : '-translate-y-[calc(100%+34px)]'
+              }`}
+              style={{ left: `${p.x}%`, top: `${p.y}%` }}
+            >
+              <span className="line-clamp-2 [&_span]:!text-slate-900">
+                <MessageBody body={body} compact />
+              </span>
+            </div>
           );
         })}
 
