@@ -231,6 +231,7 @@ export class TableRoom {
     // Remove the player first so releaseSeat does not remember the kicked stack (also when the hand settles later).
     this.players.delete(target.playerId);
     this.stacks.delete(nameKey(target.name));
+    this.pendingSitOut.delete(target.playerId);
     this.releaseSeat(target.playerId);
     if (target.graceTimer) clearTimeout(target.graceTimer);
     for (const s of [...this.sockets]) {
