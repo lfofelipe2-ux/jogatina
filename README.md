@@ -9,6 +9,7 @@ A multiplayer Texas Hold'em game for the browser. Create a table, share the secr
 - No login: each table has a secret link. Anyone with the link can join.
 - Pick a name, sit down, and play No-Limit Texas Hold'em.
 - Scoreboard with each player's stack, net result, hands played and won, and biggest pot.
+- Table chat with text, one-tap taunts, searchable animated stickers ([Noto Emoji Animation](https://github.com/googlefonts/noto-emoji-animation), CC BY 4.0) and GIF search via [KLIPY](https://partner.klipy.com). A message also pops up over the sender's seat.
 - Server-authoritative: the server owns the deck and validates every action. Hole cards are only sent to their owner.
 
 ## Stack
@@ -55,6 +56,8 @@ docker run --rm -p 3000:3000 poker
 ```
 
 Then open http://localhost:3000. The container listens on port 3000 and exposes a `/health` endpoint.
+
+GIF search needs a KLIPY API key (free at https://partner.klipy.com). Pass it as `KLIPY_API_KEY`, for example `docker run --rm -p 3000:3000 -e KLIPY_API_KEY=... poker`. Without it the chat still works and the GIF tab is hidden. The key stays on the server: the browser searches through `/api/gifs`, and the server only accepts GIFs its own search returned.
 
 ## Hosting
 

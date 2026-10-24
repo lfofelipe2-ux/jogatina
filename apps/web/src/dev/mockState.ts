@@ -1,4 +1,5 @@
 import type {
+  ChatMessage,
   ClientTableState,
   HandResult,
   HandView,
@@ -108,4 +109,14 @@ export function mockState(variant: MockVariant): ClientTableState {
       { playerId: 'p9', name: 'Fábio', seat: null, connected: true },
     ],
   };
+}
+
+export function mockChat(): ChatMessage[] {
+  const now = Date.now();
+  return [
+    { id: 1, playerId: 'p1', name: 'Bruno', at: now - 60_000, body: { kind: 'text', text: 'Hoje eu levo tudo' } },
+    { id: 2, playerId: 'p0', name: 'Ana', at: now - 40_000, body: { kind: 'taunt', text: 'Vai pagar pra ver?' } },
+    { id: 3, playerId: 'p3', name: 'Diego', at: now - 1000, body: { kind: 'sticker', id: '1f602' } },
+    { id: 4, playerId: 'p1', name: 'Bruno', at: now - 500, body: { kind: 'taunt', text: 'Blefe!' } },
+  ];
 }

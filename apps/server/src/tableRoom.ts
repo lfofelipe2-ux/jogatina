@@ -1,6 +1,9 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import type { Socket } from 'socket.io';
 import {
+  CHAT_HISTORY_MAX,
+  CHAT_TEXT_MAX,
+  TAUNTS,
   applyAction,
   canStartHand,
   createTable,
@@ -12,13 +15,17 @@ import {
   shuffledDeck,
   sitDown,
   standUp as engineStandUp,
+  isSticker,
   startHand,
   timeoutAction,
   viewFor,
   type ActionType,
+  type ChatBody,
+  type ChatMessage,
   type ClientTableState,
   type ClientToServerEvents,
   type GameEvent,
+  type GifMedia,
   type JoinTableRequest,
   type JoinTableResponse,
   type PlayerAction,
@@ -43,6 +50,8 @@ const EMPTY_TABLE_TTL_MS = 30 * 60_000;
 const START_DELAY_MS = 1500;
 const NEXT_HAND_DELAY_MS = 4000;
 const ACTIONS: ActionType[] = ['fold', 'check', 'call', 'bet', 'raise'];
+const CHAT_WINDOW_MS = 5000;
+const CHAT_MAX_PER_WINDOW = 5;
 
 export function newToken(): string {
   return randomBytes(16).toString('base64url');
@@ -56,6 +65,33 @@ export function int(v: unknown, min: number, max: number, message = 'Configuraç
 /** Key for remembered off-table stacks: a kicked player who rejoins under the same name gets a new playerId. */
 function nameKey(name: string): string {
   return name.trim().toLocaleLowerCase();
+}
+
+function chatBody(raw: unknown, gif: (raw: unknown) => (GifMedia & { id: string }) | undefined): ChatBody {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  switch (r.kind) {
+    case 'text': {
+      const text = typeof r.text === 'string' ? r.text.trim() : '';
+      if (!text) throw new UserError('Mensagem vazia');
+      if (text.length > CHAT_TEXT_MAX) throw new UserError(`Mensagem com mais de ${CHAT_TEXT_MAX} caracteres`);
+      return { kind: 'text', text };
+    }
+    case 'taunt': {
+      const text = typeof r.id === 'number' ? TAUNTS[r.id] : undefined;
+      if (!text) throw new UserError('Provocação inválida');
+      return { kind: 'taunt', text };
+    }
+    case 'sticker':
+      if (!isSticker(r.id)) throw new UserError('Figurinha inválida');
+      return { kind: 'sticker', id: r.id };
+    case 'gif': {
+      const m = gif(r);
+      if (!m) throw new UserError('GIF inválido, busque de novo');
+      return { kind: 'gif', ...m };
+    }
+    default:
+      throw new UserError('Mensagem inválida');
+  }
 }
 
 /** Buy-in for a name whose scoreboard row already exists: the chips it had left with it, so the row restarts from zero. */
@@ -96,6 +132,9 @@ export class TableRoom {
   private readonly pendingStandUp = new Set<string>();
   private readonly pendingSitOut = new Set<string>();
   private readonly sockets = new Set<AppSocket>();
+  private readonly chatLog: ChatMessage[] = [];
+  private readonly chatHits = new Map<string, number[]>();
+  private chatSeq = 0;
   private actionDeadline: number | null = null;
   private actionKey: string | null = null;
   private actionCount = 0;
@@ -149,6 +188,7 @@ export class TableRoom {
     }
     if (typeof req.hostToken === 'string' && req.hostToken === this.hostToken) p.isHost = true;
     this.attach(socket, p);
+    socket.emit('chat:history', this.chatLog);
     this.commit();
     return { ok: true, playerId: p.playerId, reconnectToken: p.reconnectToken, isHost: p.isHost };
   }
@@ -230,6 +270,7 @@ export class TableRoom {
     if (target.playerId === playerId) throw new UserError('Você não pode se expulsar');
     // Remove the player first so releaseSeat does not remember the kicked stack (also when the hand settles later).
     this.players.delete(target.playerId);
+    this.chatHits.delete(target.playerId);
     this.stacks.delete(nameKey(target.name));
     this.pendingSitOut.delete(target.playerId);
     this.releaseSeat(target.playerId);
@@ -242,6 +283,20 @@ export class TableRoom {
       setTimeout(() => s.disconnect(true), 200);
     }
     this.commit();
+  }
+
+  chat(playerId: string, raw: unknown, gif: (raw: unknown) => (GifMedia & { id: string }) | undefined): void {
+    const p = this.mustPlayer(playerId);
+    const body = chatBody(raw, gif);
+    const now = Date.now();
+    const hits = (this.chatHits.get(playerId) ?? []).filter((t) => now - t < CHAT_WINDOW_MS);
+    if (hits.length >= CHAT_MAX_PER_WINDOW) throw new UserError('Calma, muitas mensagens seguidas');
+    hits.push(now);
+    this.chatHits.set(playerId, hits);
+    const msg: ChatMessage = { id: ++this.chatSeq, playerId, name: p.name, at: now, body };
+    this.chatLog.push(msg);
+    if (this.chatLog.length > CHAT_HISTORY_MAX) this.chatLog.shift();
+    for (const s of this.sockets) s.emit('chat', msg);
   }
 
   announceLink(): void {
