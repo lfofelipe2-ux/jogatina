@@ -1,11 +1,11 @@
 import { setMuted, useMuted } from '../lib/sound';
 import { btn } from '../lib/ui';
 
-export default function MuteButton() {
+export default function MuteButton({ withLabel = false, className = '' }: { withLabel?: boolean; className?: string }) {
   const muted = useMuted();
   const label = muted ? 'Ativar som' : 'Silenciar';
   return (
-    <button type="button" onClick={() => setMuted(!muted)} aria-label={label} title={label} aria-pressed={muted} className={btn}>
+    <button type="button" onClick={() => setMuted(!muted)} aria-label={label} title={label} aria-pressed={muted} className={`${btn} flex items-center justify-center gap-2 ${className}`}>
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor" />
         {muted ? (
@@ -20,6 +20,7 @@ export default function MuteButton() {
           </>
         )}
       </svg>
+      {withLabel && <span>{muted ? 'Som desligado' : 'Som ligado'}</span>}
     </button>
   );
 }

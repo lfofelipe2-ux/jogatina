@@ -126,7 +126,7 @@ export default function GameView({ state, chat, onRotated, connected = true }: P
             </div>
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <HandCheatSheet hole={hand ? (me?.holeCards ?? null) : null} board={hand?.board ?? []} />
-              <MuteButton />
+              <MuteButton className="hidden sm:flex" />
               <ShareLink />
               <span className="hidden gap-2 sm:flex">{seatButtons}</span>
               <Link to="/" className={btn}>
@@ -138,6 +138,7 @@ export default function GameView({ state, chat, onRotated, connected = true }: P
                 </summary>
                 <div className="absolute right-0 top-full z-40 mt-1 flex w-56 flex-col gap-2 rounded-lg border border-slate-700 bg-slate-800 p-2 shadow-xl">
                   <p className="text-xs text-slate-400">{info}</p>
+                  <MuteButton withLabel />
                   {seatButtons}
                 </div>
               </details>

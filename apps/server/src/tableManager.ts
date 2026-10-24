@@ -21,9 +21,10 @@ export class TableManager {
     return n;
   }
 
-  /** Open tables for the lobby, busiest first. */
+  /** Open tables for the lobby (someone connected), busiest first. */
   list(): LobbyTable[] {
     return [...this.tables.values()]
+      .filter((t) => t.connectedCount() > 0)
       .map((t) => t.summary())
       .sort((a, b) => b.players.length - a.players.length || a.name.localeCompare(b.name));
   }
