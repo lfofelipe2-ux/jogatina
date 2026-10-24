@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { SeatView } from '@poker/engine';
 import Card from './Card';
-import Timer from './Timer';
+import Timer, { Countdown } from './Timer';
 import { fmt } from '../lib/format';
 
 export type Tag = 'D' | 'SB' | 'BB';
@@ -82,6 +82,12 @@ export default function Seat({
           <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-slate-900 shadow">
             D
           </span>
+        )}
+        {toAct && !isYou && deadline !== null && (
+          <Countdown
+            deadline={deadline}
+            className="absolute -left-2.5 -top-2.5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-base text-white shadow ring-2 ring-red-300/70"
+          />
         )}
         <div className="truncate px-1 text-xs font-semibold text-slate-100">{view.name}</div>
         <div className="text-xs font-medium tabular-nums text-emerald-300">{fmt(view.stack)}</div>

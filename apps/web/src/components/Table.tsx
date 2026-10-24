@@ -1,6 +1,7 @@
 import type { ClientTableState, HandResult } from '@poker/engine';
 import Card from './Card';
 import Seat, { type Tag } from './Seat';
+import { Countdown } from './Timer';
 import { useGame } from './GameContext';
 import { fmt, joinNames, STREET_LABEL } from '../lib/format';
 
@@ -60,6 +61,12 @@ export default function Table({ state }: { state: ClientTableState }) {
           <div className="felt absolute inset-[4%] rounded-[50%] border-[12px] border-emerald-950 shadow-[inset_0_0_30px_rgba(0,0,0,0.35),0_12px_30px_rgba(0,0,0,0.45)] sm:inset-x-[3%] sm:inset-y-[6%]" />
 
           <div className="absolute left-1/2 top-[46%] flex w-[60%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 text-center sm:top-1/2">
+            {toActSeat !== null && toActSeat === you.seat && state.actionDeadline !== null && (
+              <Countdown
+                deadline={state.actionDeadline}
+                className="absolute bottom-full mb-1 text-6xl leading-none text-red-400 [text-shadow:0_2px_8px_rgba(0,0,0,0.6)]"
+              />
+            )}
             {hand ? (
               <>
                 <div className="pot-pill whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold sm:px-2.5 sm:text-xs tabular-nums text-white">
